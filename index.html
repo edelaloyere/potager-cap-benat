@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Potager">
+  <meta name="theme-color" content="#2E7D32">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  <title>Mon Potager — Cap Bénat</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --g-dark: #2E7D32;
+      --g-mid: #388E3C;
+      --g-light: #81C784;
+      --g-bg: #F1F8E9;
+      --g-pale: #E8F5E9;
+      --text: #212121;
+      --text-light: #757575;
+      --white: #FFFFFF;
+      --c-success: #2E7D32;
+      --c-mitige: #E65100;
+      --c-echec: #C62828;
+      --c-encours: #1565C0;
+      --nav-h: 60px;
+      --hdr-h: 58px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+
+    html, body {
+      height: 100%; width: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+      background: var(--g-bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app { display: flex; flex-direction: column; height: 100dvh; }
+
+    /* ---- HEADER ---- */
+    .hdr {
+      background: var(--g-dark);
+      color: white;
+      padding: 0 16px;
+      padding-top: var(--safe-t);
+      height: calc(var(--hdr-h) + var(--safe-t));
+      display: flex; align-items: flex-end; padding-bottom: 10px;
+      justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    .hdr-left h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.2px; }
+    .hdr-left p  { font-size: 11px; opacity: 0.75; margin-top: 1px; }
+
+    /* ---- MAIN SCROLL ---- */
+    #main {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 14px 14px;
+      padding-bottom: calc(var(--nav-h) + var(--safe-b) + 80px);
+    }
+
+    /* ---- BOTTOM NAV ---- */
+    .bnav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: calc(var(--nav-h) + var(--safe-b));
+      padding-bottom: var(--safe-b);
+      background: white;
+      border-top: 1px solid #E0E0E0;
+      display: flex;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
+      z-index: 100;
+    }
+    .nav-btn {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 3px; color: #9E9E9E;
+      border: none; background: none;
+      font-size: 10px; font-weight: 500;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s;
+    }
+    .nav-btn svg { width: 23px; height: 23px; }
+    .nav-btn.on { color: var(--g-dark); }
+
+    /* ---- FAB ---- */
+    .fab {
+      position: fixed;
+      bottom: calc(var(--nav-h) + var(--safe-b) + 14px);
+      right: 18px;
+      width: 54px; height: 54px;
+      background: var(--g-dark);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+      border: none; cursor: pointer; z-index: 90;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .fab svg { color: white; width: 27px; height: 27px; }
+
+    /* ---- CARDS ---- */
+    .card {
+      background: white; border-radius: 14px;
+      padding: 14px; margin-bottom: 10px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.07);
+    }
+    .card-row { display: flex; justify-content: space-between; align-items: flex-start; }
+
+    /* ---- BADGES ---- */
+    .badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+    }
+    .bs { background: #E8F5E9; color: #2E7D32; }
+    .bm { background: #FFF3E0; color: #E65100; }
+    .be { background: #FFEBEE; color: #C62828; }
+    .bc { background: #E3F2FD; color: #1565C0; }
+    .bz { background: #F3E5F5; color: #6A1B9A; font-size: 10px; }
+
+    /* ---- SECTION TITLE ---- */
+    .stitle {
+      font-size: 11px; font-weight: 700;
+      color: var(--text-light);
+      text-transform: uppercase; letter-spacing: 0.9px;
+      margin: 18px 0 8px;
+    }
+    .stitle:first-child { margin-top: 0; }
+
+    /* ---- BUTTONS ---- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 11px 18px; border-radius: 10px; border: none;
+      font-size: 15px; font-weight: 600;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-p { background: var(--g-dark); color: white; }
+    .btn-o { background: transparent; border: 1.5px solid var(--g-dark); color: var(--g-dark); }
+    .btn-d { background: transparent; border: 1.5px solid #C62828; color: #C62828; font-size: 13px; padding: 8px 14px; }
+    .btn-sm { padding: 7px 13px; font-size: 13px; }
+
+    /* ---- MODAL ---- */
+    .mo {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      display: flex; align-items: flex-end;
+    }
+    .mo-box {
+      background: white; border-radius: 22px 22px 0 0;
+      width: 100%; max-height: 94dvh;
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 0 18px 32px;
+      padding-bottom: calc(32px + var(--safe-b));
+      animation: slideUp 0.28s cubic-bezier(.4,0,.2,1);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    .mo-handle {
+      width: 38px; height: 4px; background: #DDD; border-radius: 2px;
+      margin: 14px auto 18px;
+    }
+    .mo-title {
+      font-size: 21px; font-weight: 700; color: var(--g-dark);
+      margin-bottom: 18px;
+    }
+
+    /* ---- FORM ---- */
+    .fg { margin-bottom: 14px; }
+    .flabel {
+      display: block; font-size: 12px; font-weight: 700;
+      color: var(--text-light); text-transform: uppercase;
+      letter-spacing: 0.6px; margin-bottom: 6px;
+    }
+    .fi {
+      width: 100%; padding: 12px 13px;
+      border: 1.5px solid #E0E0E0; border-radius: 10px;
+      font-size: 16px; font-family: inherit;
+      color: var(--text); background: white;
+      -webkit-appearance: none;
+    }
+    .fi:focus { outline: none; border-color: var(--g-dark); }
+    .fta { resize: vertical; min-height: 78px; }
+
+    /* ---- ZONE PILLS ---- */
+    .zpills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .zpill {
+      padding: 8px 13px; border-radius: 20px;
+      border: 1.5px solid #E0E0E0; font-size: 13px;
+      cursor: pointer; background: white; color: var(--text);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .zpill.on { background: var(--g-dark); color: white; border-color: var(--g-dark); }
+
+    /* ---- RESULT BTNS ---- */
+    .rbts { display: flex; gap: 6px; }
+    .rbt {
+      flex: 1; padding: 9px 4px; border-radius: 8px;
+      border: 1.5px solid #E0E0E0; font-size: 12px; font-weight: 600;
+      text-align: center; cursor: pointer; background: white;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .rs { background: #E8F5E9; border-color: #43A047; color: #2E7D32; }
+    .rm { background: #FFF3E0; border-color: #FF8F00; color: #E65100; }
+    .re { background: #FFEBEE; border-color: #EF5350; color: #C62828; }
+    .rc { background: #E3F2FD; border-color: #42A5F5; color: #1565C0; }
+
+    /* ---- MÉTÉO ---- */
+    .mbts { display: flex; gap: 8px; }
+    .mbt {
+      flex: 1; padding: 10px; border-radius: 10px;
+      border: 1.5px solid #E0E0E0; font-size: 22px;
+      text-align: center; cursor: pointer; background: white;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mbt.on { border-color: var(--g-dark); background: var(--g-pale); }
+
+    /* ---- ACTIONS FORM ---- */
+    .ae {
+      background: var(--g-bg); border-radius: 10px;
+      padding: 12px; margin-bottom: 8px;
+    }
+    .ae-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .add-act {
+      width: 100%; padding: 12px;
+      border: 2px dashed #BDBDBD; border-radius: 10px;
+      background: transparent; color: var(--text-light);
+      font-size: 15px; cursor: pointer; text-align: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ---- JOURNAL CARD ---- */
+    .s-date { font-size: 12px; color: var(--text-light); font-weight: 600; }
+    .s-title { font-size: 16px; font-weight: 700; margin: 3px 0 5px; }
+    .s-prev { font-size: 13px; color: var(--text-light); line-height: 1.4; }
+    .s-zones { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+
+    /* ---- ACTION ITEM (vue session) ---- */
+    .ai {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 0; border-bottom: 1px solid #F5F5F5;
+    }
+    .ai:last-child { border-bottom: none; }
+
+    /* ---- CULTURE GRID ---- */
+    .cgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .cc {
+      background: white; border-radius: 12px;
+      padding: 13px; box-shadow: 0 1px 5px rgba(0,0,0,0.07);
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .cc-name { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+    .cc-sub  { font-size: 11px; color: var(--text-light); margin-bottom: 7px; line-height: 1.3; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+    .ds { background: #43A047; }
+    .dc { background: #42A5F5; }
+    .de { background: #EF5350; }
+    .da { background: #BDBDBD; }
+
+    /* ---- FILTER BAR ---- */
+    .fbar {
+      display: flex; gap: 7px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      padding-bottom: 6px; margin-bottom: 12px;
+    }
+    .fbar::-webkit-scrollbar { display: none; }
+    .fc {
+      flex-shrink: 0; padding: 7px 13px; border-radius: 20px;
+      border: 1.5px solid #E0E0E0; font-size: 13px;
+      cursor: pointer; background: white; white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .fc.on { background: var(--g-dark); color: white; border-color: var(--g-dark); }
+
+    /* ---- TODO ---- */
+    .ti { display: flex; align-items: center; gap: 11px; padding: 13px 0; border-bottom: 1px solid #F5F5F5; }
+    .ti:last-child { border-bottom: none; }
+    .tck {
+      width: 24px; height: 24px; border-radius: 7px;
+      border: 2px solid #BDBDBD; flex-shrink: 0;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tck.on { background: var(--g-dark); border-color: var(--g-dark); }
+    .ttxt { flex: 1; font-size: 15px; line-height: 1.35; }
+    .ttxt.done { text-decoration: line-through; color: var(--text-light); }
+    .del-btn {
+      background: none; border: none; color: #BDBDBD;
+      cursor: pointer; padding: 4px; flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ---- PLANNING ---- */
+    .mc { background: white; border-radius: 14px; margin-bottom: 10px; overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,0.07); }
+    .mc-hdr { background: var(--g-dark); color: white; padding: 12px 15px; font-weight: 700; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .mc.now .mc-hdr { background: #43A047; }
+    .mc-now-tag { font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px; }
+    .mc-body { padding: 10px 15px; }
+    .mt { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F8F8F8; font-size: 14px; }
+    .mt:last-child { border-bottom: none; }
+    .mt-ico { font-size: 17px; flex-shrink: 0; }
+
+    /* ---- EMPTY STATE ---- */
+    .empty { text-align: center; padding: 50px 20px; color: var(--text-light); }
+    .empty-ico { font-size: 46px; margin-bottom: 12px; }
+
+    /* ---- SNACKBAR ---- */
+    .snack {
+      position: fixed;
+      bottom: calc(var(--nav-h) + var(--safe-b) + 14px);
+      left: 14px; right: 14px;
+      background: #323232; color: white;
+      padding: 13px 15px; border-radius: 10px;
+      font-size: 14px; z-index: 500;
+      display: none;
+      animation: fadeUp 0.25s ease;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ---- DIVIDER ---- */
+    .divider { height: 1px; background: #F0F0F0; margin: 10px 0; }
+
+    /* ---- SESSION DETAIL CONSTAT ---- */
+    .constat-box {
+      background: var(--g-pale); border-radius: 10px;
+      padding: 13px; margin-bottom: 14px;
+      font-size: 14px; line-height: 1.65; white-space: pre-line;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="hdr">
+    <div class="hdr-left">
+      <h1 id="hdr-title">Mon Potager</h1>
+      <p id="hdr-sub">Cap Bénat — Bormes-les-Mimosas</p>
+    </div>
+  </div>
+  <div id="main"></div>
+  <nav class="bnav">
+    <button class="nav-btn on" id="btn-journal" onclick="go('journal')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 6h16M4 10h16M4 14h10"/><rect x="3" y="3" width="18" height="18" rx="2"/>
+      </svg>Journal
+    </button>
+    <button class="nav-btn" id="btn-planning" onclick="go('planning')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>Planning
+    </button>
+    <button class="nav-btn" id="btn-cultures" onclick="go('cultures')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22V12M12 12C12 7 7 5 3 7M12 12C12 7 17 5 21 7"/>
+      </svg>Cultures
+    </button>
+    <button class="nav-btn" id="btn-todos" onclick="go('todos')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="9 11 12 14 22 4"/>
+        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+      </svg>À faire
+    </button>
+  </nav>
+</div>
+<div class="snack" id="snack"></div>
+
+<script>
+// =====================================================
+// STATE
+// =====================================================
+const S = {
+  tab: 'journal',
+  sessions: [],
+  todos: [],
+  cultures: [],
+  cFilter: 'Tous',
+};
+
+const ZONES = ['Restanque','Zone vignes','Près cuisine','Zone piscine','Devant maison','Contrebas restanque','Trépieds','Diverses'];
+const SAISONS = ['Prochain passage','Printemps','Été','Automne','Hiver'];
+
+function save() {
+  localStorage.setItem('potager_v2', JSON.stringify({ sessions: S.sessions, todos: S.todos, cultures: S.cultures }));
+}
+function load() {
+  const raw = localStorage.getItem('potager_v2');
+  if (raw) {
+    try { const d = JSON.parse(raw); S.sessions = d.sessions||[]; S.todos = d.todos||[]; S.cultures = d.cultures||[]; }
+    catch(e) { initData(); }
+  } else { initData(); }
+}
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+// =====================================================
+// DATA INITIALE (depuis le document Word)
+// =====================================================
+function initData() {
+  S.sessions = [
+    { id:uid(), date:'2026-04-18', meteo:'☀️', zones:['Restanque','Zone vignes','Devant maison'],
+      constats:`Enseignements majeurs (bilan de saison) :
+
+1. La terre paillée à l'automne est excellente vs non paillée. La restanque (mi-ombre + paillage) = zone star. Il faut impérativement pailler avant de cultiver. Attention au muret : très peu de soleil, sol dur.
+
+2. Tout ce qui est hors restanque = échec (sécheresse + dormance des vignes). Oublier la zone vignes tant qu'il n'y aura pas de goutte-à-goutte. Les pommes de terre sont une exception.
+
+3. Privilégier les repiquages en avril à la Foire aux plants de La Londe plutôt que les semis aléatoires avant (surtout sans goutte-à-goutte).
+
+4. Succès imprévu des aromatiques près de la cuisine (bénéficient de l'arrosage auto du voisin).
+
+5. Réserve de paillage près des tennis = vide → faire des stocks pendant l'hiver.
+
+6. Tant que la terre ne sera pas parfaite, privilégier les plants aux semis (laitues, épinards). Ou semer en barquette à Aix.`,
+      actions:[
+        {id:uid(),texte:"Arrosages toutes zones (radis, laitues, poireaux, blettes) + 10% urée",resultat:'succes'},
+        {id:uid(),texte:"Rempotage tomates Saint-Pierre dans la restanque (1 seau eau + compost)",resultat:'succes'},
+        {id:uid(),texte:"Rempotage blettes en godets individuels dans la restanque (compost)",resultat:'succes'},
+        {id:uid(),texte:"Repiquage 4 artichauts dans la restanque",resultat:'succes'},
+        {id:uid(),texte:"Repiquage 1 artichaut devant la maison",resultat:'mitige',note:"Difficulté à reprendre"},
+        {id:uid(),texte:"Repiquage 1 chou à côté des aromatiques cuisine",resultat:'succes'},
+        {id:uid(),texte:"Repiquage 2 aubergines dans la restanque",resultat:'succes'},
+        {id:uid(),texte:"Repiquage 2 aubergines devant la maison",resultat:'succes'},
+        {id:uid(),texte:"Repiquage thym + sauge près de la maison",resultat:'succes'},
+        {id:uid(),texte:"Traitement pucerons aubergines (savon noir + vinaigre blanc + huile 10L)",resultat:'mitige',note:"Résultat ok mais attention au vinaigre : risque brûlure des feuilles"},
+        {id:uid(),texte:"Paillages + compost aux pieds des choux",resultat:'succes'},
+        {id:uid(),texte:"Semis 12 courgettes + 6 potimarrons + 6 butternuts",resultat:'mitige',note:"6 courgettes germées, 0 courge (graines mauvaises)"},
+        {id:uid(),texte:"Installation 8 trépieds (barre centrale sur 3 d'entre eux)",resultat:'succes'},
+        {id:uid(),texte:"Plantation 3 concombres au pied des trépieds",resultat:'succes'},
+        {id:uid(),texte:"Plantation 12 laitues Craquelle du Midi",resultat:'mitige',note:"Un peu jaunes 1 semaine après → faim d'azote (paillis bois décomposé), ajouter herbe fraîche"},
+      ]
+    },
+    { id:uid(), date:'2026-03-07', meteo:'⛅', zones:['Restanque','Zone vignes','Zone piscine'],
+      constats:`Constats : hiver très pluvieux, sols engorgés. Beaucoup d'adventices mais sol facile à travailler. Pois et fèves en fleur. Germination choux cabus réussie. Bourgeons sur tous les arbres dont kiwis. Premiers grignotages par lapins.
+
+⚠️ Erreur : plantation basilic, concombres et tomates début mars → trop tôt. L'année prochaine attendre avril (températures > 10°C en continu).`,
+      actions:[
+        {id:uid(),texte:"Semis ~10 tomates cerises dans la poubelle devant garage",resultat:'echec',note:"Tout petit en avril → à faire en godet à Aix"},
+        {id:uid(),texte:"Semis 10 fèves + quelques pois dans les trous",resultat:'succes',note:"Développés très vite, ont presque rattrapé les autres en 1 mois"},
+        {id:uid(),texte:"Semis 5 poquets blettes (2 zone artichauts + 3 restanque)",resultat:'mitige',note:"Nickel dans la restanque, 0 dans l'autre zone"},
+        {id:uid(),texte:"Plantation 5 tomates Marmande + 4 basilic (rang vignes droite)",resultat:'echec',note:"Trop tôt"},
+        {id:uid(),texte:"Plantation basilic + persil + ciboulette près cuisine",resultat:'mitige',note:"Moyen mais vivant sauf basilic (trop tôt)"},
+        {id:uid(),texte:"Plantation pommes de terre + BRF 10cm (contrebas restanque)",resultat:'succes',note:"Bien poussé, bon timing"},
+        {id:uid(),texte:"Plantation pommes de terre + BRF 10cm (zone vignes gauche)",resultat:'mitige',note:"Bof, peu d'entretien"},
+        {id:uid(),texte:"Déplacement 3 topinambours",resultat:'echec'},
+        {id:uid(),texte:"Plantation 4 concombres (zone vignes dernière rangée gauche)",resultat:'echec',note:"Trop tôt"},
+        {id:uid(),texte:"Plantation 1 concombre (restanque contre vigne)",resultat:'echec',note:"Trop tôt"},
+        {id:uid(),texte:"Plantation 1 concombre (rang fèves dans un trou, sans paillage)",resultat:'echec',note:"Trop tôt"},
+        {id:uid(),texte:"Plantation 50 poireaux bleu de Solaise (restanque, 2 rangs)",resultat:'succes',note:"Nickel, bon timing → à refaire même période"},
+        {id:uid(),texte:"Semis œillets d'Inde (2 rangs extérieurs zone vignes)",resultat:'echec',note:"Rien vu en avril"},
+        {id:uid(),texte:"Semis carottes (plusieurs rangées restanque)",resultat:'succes',note:"Zone la plus ensoleillée = mieux"},
+        {id:uid(),texte:"Retrait 1 chou pour laisser place aux carottes",resultat:'succes',note:"Repiquage ok"},
+        {id:uid(),texte:"Semis 6 poquets capucines (trépieds)",resultat:'mitige',note:"3 ont germé en avril, encore petites"},
+        {id:uid(),texte:"Semis cosmos + capucines (bordure restanque)",resultat:'succes',note:"Sorti en avril → semer les fleurs à partir de mars"},
+        {id:uid(),texte:"Semis radis (zone au-dessus vignes)",resultat:'echec',note:"Manque d'eau"},
+        {id:uid(),texte:"Arrachage pissenlits en fleur (devant maison côté sud)",resultat:'mitige',note:"Repoussé en 1 mois"},
+      ]
+    },
+    { id:uid(), date:'2026-02-01', meteo:'🌧️', zones:['Restanque','Zone vignes','Devant maison'],
+      constats:"",
+      actions:[
+        {id:uid(),texte:"Plantation 5 artichauts vert de Provence le long du muret restanque",resultat:'echec',note:"Sauf celui de la restanque = top. Les autres stagnent"},
+        {id:uid(),texte:"Semis 2 graines artichauts en quinconces x3 (test germination)",resultat:'mitige',note:"2 semis ont germé, repiqués en avril dans restanque"},
+        {id:uid(),texte:"Semis épinards Matador",resultat:'echec'},
+        {id:uid(),texte:"Semis radis 18 jours + laitue Reine de mai (mélange)",resultat:'echec'},
+        {id:uid(),texte:"Semis ligne cosmos en bordure",resultat:'mitige',note:"Germé mais épars"},
+        {id:uid(),texte:"Semis 6 poquets choux cabus de Châteaurenard (arc de cercle)",resultat:'succes',note:"Germé et pas mal"},
+        {id:uid(),texte:"Tuteurage + buttage fèves + pois, mise en place treillis",resultat:'mitige',note:"Bonne idée de les tuteurer et accrocher. Mais résultat final = échec : lapins + sécheresse"},
+        {id:uid(),texte:"Apport engrais clémentiniers + avocatier, retrait tuteur avocatier",resultat:'succes'},
+      ]
+    },
+    { id:uid(), date:'2025-12-01', meteo:'⛅', zones:['Zone vignes','Restanque'],
+      constats:"",
+      actions:[
+        {id:uid(),texte:"Plantation 7 topinambours (derrière vignes + paillage broyat)",resultat:'echec',note:"Échec à date avril"},
+        {id:uid(),texte:"Semis roquette sauvage à la volée (entrée zone piscine 1ère droite)",resultat:'echec'},
+      ]
+    },
+    { id:uid(), date:'2025-10-15', meteo:'☀️', zones:['Zone piscine','Zone vignes'],
+      constats:"Démarrage du potager — première saison.",
+      actions:[
+        {id:uid(),texte:"Aménagement zone sous piscine + paillage / désherbage",resultat:'succes'},
+        {id:uid(),texte:"Plantation des tuteurs en bambous",resultat:'succes'},
+        {id:uid(),texte:"Semis fèves + pois sous bambous (~10 graines)",resultat:'succes',note:"Quasi toutes les graines ont germé 3 semaines après"},
+        {id:uid(),texte:"Installation composteur + remplissage",resultat:'succes',note:"Retournement du contenu 3 semaines après"},
+        {id:uid(),texte:"Installation lasagne (poubelle tomates cerises)",resultat:'succes'},
+        {id:uid(),texte:"Plantation 2 kiwis mâle + femelle (zone des vignes)",resultat:'succes',note:"Mâle peine plus que la femelle (trop exposé ?)"},
+        {id:uid(),texte:"Semis 25 fèves côté mâle + 25 pois en poquets de 2 côté femelle",resultat:'succes',note:"Pas mal de graines ont germé"},
+      ]
+    }
+  ];
+
+  S.cultures = [
+    {id:uid(),nom:'Artichauts',variete:'Vert de Provence',zone:'Restanque',statut:'encours',note:"Celui de la restanque = très bien développé. 4 repiqués en avril avec compost. Ceux hors restanque = échec. À cultiver dans sol riche."},
+    {id:uid(),nom:'Poireaux',variete:'Bleu de Solaise',zone:'Restanque',statut:'succes',note:"Plantés mars 2026. Nickel, bon timing. → À refaire même période l'an prochain."},
+    {id:uid(),nom:'Choux cabus',variete:'Châteaurenard',zone:'Restanque',statut:'succes',note:"Zone riche = mieux développés. Surveiller l'arrivée des piérides (papillons blancs)."},
+    {id:uid(),nom:'Blettes',variete:'',zone:'Restanque',statut:'encours',note:"Nickel dans la restanque (0 dans autre zone). Repiqués en godets individuels en avril."},
+    {id:uid(),nom:'Carottes',variete:'',zone:'Restanque',statut:'encours',note:"Zone la plus ensoleillée = mieux. Semis mars 2026."},
+    {id:uid(),nom:'Tomates',variete:'Saint-Pierre',zone:'Restanque',statut:'encours',note:"Rempotées avril 2026 avec 1 seau eau + compost par pied."},
+    {id:uid(),nom:'Aubergines',variete:'',zone:'Restanque + Devant maison',statut:'encours',note:"2 dans restanque + 2 devant maison. Attention pucerons (éviter vinaigre blanc en concentration forte)."},
+    {id:uid(),nom:'Concombres',variete:'',zone:'Trépieds',statut:'encours',note:"3 plants au pied des trépieds (avril 2026). Erreur : trop tôt avant avril."},
+    {id:uid(),nom:'Courgettes',variete:'',zone:'Zone vignes',statut:'encours',note:"6 germées sur 12 semis (avril). 0 courge (mauvaises graines)."},
+    {id:uid(),nom:'Laitues',variete:'Craquelle du Midi',zone:'Diverses',statut:'encours',note:"12 plants en avril. Un peu jaunes = faim d'azote. Ajouter herbe fraîche ? Sinon faire en barquette à Aix."},
+    {id:uid(),nom:'Kiwis',variete:'Mâle + Femelle',zone:'Zone vignes',statut:'encours',note:"Femelle bien développée. Mâle peine (trop exposé au soleil ?). Gros apport eau + compost avril."},
+    {id:uid(),nom:'Aromatiques',variete:'Persil, ciboulette, thym, sauge',zone:'Près cuisine',statut:'succes',note:"Zone excellente grâce à l'arrosage automatique du voisin. → Y mettre tous les aromatiques, voire quelques cultures."},
+    {id:uid(),nom:'Capucines + Cosmos',variete:'',zone:'Restanque + Trépieds',statut:'encours',note:"3 capucines germées (petites). Cosmos sortis en avril. Semer les fleurs à partir de mars."},
+    {id:uid(),nom:'Pommes de terre',variete:'',zone:'Contrebas restanque',statut:'succes',note:"Bien poussé. Timing mars = bon. Technique BRF 10cm efficace."},
+    {id:uid(),nom:'Clémentiniers + Avocatier',variete:'',zone:'Devant maison',statut:'encours',note:"Engrais apporté en février. Tuteur avocatier retiré."},
+  ];
+
+  S.todos = [
+    {id:uid(),texte:"Ajouter herbe fraîche autour des laitues (faim d'azote)",fait:false,saison:'Prochain passage',priorite:'haute'},
+    {id:uid(),texte:"Surveiller piérides (papillons blancs) sur les choux",fait:false,saison:'Prochain passage',priorite:'haute'},
+    {id:uid(),texte:"Arroser régulièrement (sécheresse à venir)",fait:false,saison:'Prochain passage',priorite:'haute'},
+    {id:uid(),texte:"Tuteurer et butter les courgettes au fur et à mesure",fait:false,saison:'Prochain passage',priorite:'normale'},
+    {id:uid(),texte:"Retourner le composteur",fait:false,saison:'Prochain passage',priorite:'normale'},
+    {id:uid(),texte:"Surveiller kiwi mâle (peut-être trop exposé au soleil)",fait:false,saison:'Été',priorite:'normale'},
+    {id:uid(),texte:"Installer goutte-à-goutte zone vignes",fait:false,saison:'Été',priorite:'haute'},
+    {id:uid(),texte:"Première récolte poireaux + choux cabus",fait:false,saison:'Été',priorite:'normale'},
+    {id:uid(),texte:"Semer fèves + pois dans la restanque (au pied d'un treillis)",fait:false,saison:'Automne',priorite:'haute'},
+    {id:uid(),texte:"Mettre effaroucheur pour lapins avant semis fèves/pois",fait:false,saison:'Automne',priorite:'haute'},
+    {id:uid(),texte:"Pailler toutes les zones avant l'hiver (priorité restanque)",fait:false,saison:'Automne',priorite:'haute'},
+    {id:uid(),texte:"Constituer stocks de paillage pendant l'hiver (réserve vide)",fait:false,saison:'Automne',priorite:'haute'},
+    {id:uid(),texte:"Amender sol près du muret avec compost (sol très dur + ombre)",fait:false,saison:'Automne',priorite:'haute'},
+    {id:uid(),texte:"Resemer roquette sauvage (échec x2)",fait:false,saison:'Automne',priorite:'normale'},
+    {id:uid(),texte:"Commander les graines pour le printemps prochain",fait:false,saison:'Hiver',priorite:'normale'},
+    {id:uid(),texte:"Semer choux cabus + poireaux en barquette à Aix (janv-fév)",fait:false,saison:'Hiver',priorite:'normale'},
+    {id:uid(),texte:"Acheter plants à la Foire aux plants de La Londe (avril)",fait:false,saison:'Printemps',priorite:'haute'},
+    {id:uid(),texte:"Semer tomates cerises en godet à Aix (pas avant mi-avril)",fait:false,saison:'Printemps',priorite:'normale'},
+    {id:uid(),texte:"Planter aromatiques près cuisine (basilic attendre avril)",fait:false,saison:'Printemps',priorite:'normale'},
+    {id:uid(),texte:"Replanter pommes de terre contrebas restanque (mars = bon timing)",fait:false,saison:'Printemps',priorite:'normale'},
+  ];
+
+  save();
+}
+
+// =====================================================
+// NAVIGATION
+// =====================================================
+function go(tab) {
+  S.tab = tab;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('on'));
+  document.getElementById('btn-' + tab).classList.add('on');
+  render();
+}
+
+// =====================================================
+// RENDER
+// =====================================================
+function render() {
+  const main = document.getElementById('main');
+  document.querySelector('.fab')?.remove();
+  const titles = { journal:'Mon Potager', planning:'Planning saisonnier', cultures:'Mes cultures', todos:'À faire' };
+  const subs = {
+    journal: 'Cap Bénat — Bormes-les-Mimosas',
+    planning: 'Tâches mois par mois',
+    cultures: S.cultures.length + ' cultures suivies',
+    todos: S.todos.filter(t=>!t.fait).length + ' tâche(s) en attente'
+  };
+  document.getElementById('hdr-title').textContent = titles[S.tab];
+  document.getElementById('hdr-sub').textContent   = subs[S.tab];
+
+  switch (S.tab) {
+    case 'journal':  main.innerHTML = renderJournal();  addFab(openNewSession); break;
+    case 'planning': main.innerHTML = renderPlanning(); break;
+    case 'cultures': main.innerHTML = renderCultures(); addFab(openNewCulture); break;
+    case 'todos':    main.innerHTML = renderTodos();    addFab(openNewTodo); break;
+  }
+}
+
+function addFab(fn) {
+  const b = document.createElement('button');
+  b.className = 'fab';
+  b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+  b.onclick = fn;
+  document.getElementById('app').appendChild(b);
+}
+
+// =====================================================
+// JOURNAL
+// =====================================================
+function renderJournal() {
+  if (!S.sessions.length) return `<div class="empty"><div class="empty-ico">🌱</div><p>Aucune session.<br>Appuie sur + pour commencer.</p></div>`;
+  return [...S.sessions].sort((a,b) => b.date.localeCompare(a.date)).map(s => {
+    const ns = s.actions.filter(a=>a.resultat==='succes').length;
+    const nm = s.actions.filter(a=>a.resultat==='mitige').length;
+    const ne = s.actions.filter(a=>a.resultat==='echec').length;
+    const nc = s.actions.filter(a=>!a.resultat||a.resultat==='encours').length;
+    const prev = s.constats ? s.constats.replace(/\n/g,' ').substring(0,90)+'…' : s.actions.length + ' action(s)';
+    return `<div class="card" onclick="viewSession('${s.id}')">
+      <div class="card-row">
+        <div>
+          <div class="s-date">${s.meteo||''} ${fmtDate(s.date)}</div>
+          <div class="s-title">${s.actions.length} action${s.actions.length>1?'s':''}</div>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:140px">
+          ${ns?`<span class="badge bs">✓ ${ns}</span>`:''}
+          ${nm?`<span class="badge bm">~ ${nm}</span>`:''}
+          ${ne?`<span class="badge be">✗ ${ne}</span>`:''}
+          ${nc?`<span class="badge bc">… ${nc}</span>`:''}
+        </div>
+      </div>
+      <div class="s-prev">${esc(prev)}</div>
+      <div class="s-zones">${[...new Set(s.zones)].map(z=>`<span class="badge bz">${z}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+// =====================================================
+// PLANNING
+// =====================================================
+const PLANNING = [
+  { label:'Mai — Juin', ico:'☀️', months:[4,5], tasks:[
+    {i:'💧',t:"Arroser régulièrement (sécheresse)"},
+    {i:'🐛',t:"Surveiller piérides sur les choux cabus"},
+    {i:'🌱',t:"Butter et tuteurer courgettes au fur et à mesure"},
+    {i:'✂️',t:"Tailler kiwis si croissance excessive"},
+    {i:'🥗',t:"Première récolte : poireaux, choux, carottes"},
+    {i:'🪣',t:"Retourner le composteur"},
+  ]},
+  { label:'Juillet — Août', ico:'🌡️', months:[6,7], tasks:[
+    {i:'💧',t:"Arrosage intensif quotidien"},
+    {i:'🍅',t:"Récoltes : tomates, aubergines, courgettes, concombres"},
+    {i:'🌿',t:"Paillage épais pour retenir l'humidité"},
+    {i:'🔧',t:"Installer goutte-à-goutte zone vignes"},
+    {i:'🥬',t:"Semer chicorées et mâches pour automne (en barquette)"},
+  ]},
+  { label:'Septembre — Octobre', ico:'🍂', months:[8,9], tasks:[
+    {i:'🌱',t:"Semer fèves dans la restanque (+ effaroucheur lapins)"},
+    {i:'🌱',t:"Semer pois dans la restanque (treillis)"},
+    {i:'🌱',t:"Resemer roquette sauvage (3ème tentative)"},
+    {i:'🌿',t:"Pailler toutes les zones (priorité restanque)"},
+    {i:'📦',t:"Constituer stock de paillage pour l'hiver"},
+    {i:'🌱',t:"Semer épinards + mâche"},
+    {i:'💪',t:"Amender sol muret avec compost"},
+    {i:'🧹',t:"Retirer les plants d'été finissants"},
+  ]},
+  { label:'Novembre — Décembre', ico:'❄️', months:[10,11], tasks:[
+    {i:'🌱',t:"Planter ail et échalotes"},
+    {i:'🪣',t:"Retourner le compost"},
+    {i:'🌿',t:"Protéger kiwis si risque de gel"},
+    {i:'📋',t:"Bilan annuel + plan pour l'an prochain"},
+    {i:'🛒',t:"Commander les graines du printemps"},
+  ]},
+  { label:'Janvier — Février', ico:'🌧️', months:[0,1], tasks:[
+    {i:'🌱',t:"Semer choux cabus en barquette à Aix"},
+    {i:'🌱',t:"Semer poireaux en barquette à Aix"},
+    {i:'💊',t:"Apport engrais clémentiniers + avocatier"},
+    {i:'📦',t:"Utiliser les stocks de paillage"},
+    {i:'✂️',t:"Taille hivernale si nécessaire"},
+  ]},
+  { label:'Mars — Avril', ico:'🌸', months:[2,3], tasks:[
+    {i:'🌱',t:"Mars : semer carottes + cosmos + capucines (restanque)"},
+    {i:'🥔',t:"Mars : planter pommes de terre (contrebas restanque, BRF 10cm)"},
+    {i:'🥬',t:"Mars : planter 50 poireaux (restanque, 2 rangs)"},
+    {i:'🛒',t:"Avril : Foire aux plants de La Londe (tomates, aubergines…)"},
+    {i:'🍅',t:"Avril : planter tomates + aubergines dans la restanque"},
+    {i:'🌿',t:"Aromatiques cuisine (persil, ciboulette, thym — PAS basilic avant mi-avril)"},
+    {i:'🔧',t:"Installer trépieds pour concombres"},
+    {i:'⚠️',t:"Attendre mi-avril pour basilic + concombres (10°C min continu)"},
+  ]},
+];
+
+function renderPlanning() {
+  const m = new Date().getMonth();
+  return PLANNING.map(b => {
+    const now = b.months.includes(m);
+    return `<div class="mc ${now?'now':''}">
+      <div class="mc-hdr">
+        <span>${b.ico} ${b.label}</span>
+        ${now?`<span class="mc-now-tag">← Maintenant</span>`:''}
+      </div>
+      <div class="mc-body">
+        ${b.tasks.map(t=>`<div class="mt"><span class="mt-ico">${t.i}</span><span>${t.t}</span></div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// =====================================================
+// CULTURES
+// =====================================================
+function renderCultures() {
+  const zones = ['Tous', ...new Set(S.cultures.map(c=>c.zone))];
+  const filtered = S.cFilter==='Tous' ? S.cultures : S.cultures.filter(c=>c.zone===S.cFilter);
+  const dotCls = {succes:'ds',encours:'dc',echec:'de'};
+  const dotLbl = {succes:'Succès',encours:'En cours',echec:'Échec'};
+  return `
+    <div class="fbar">
+      ${zones.map(z=>`<button class="fc ${S.cFilter===z?'on':''}" onclick="setCF('${z}')">${z}</button>`).join('')}
+    </div>
+    <div class="cgrid">
+      ${filtered.map(c=>`
+        <div class="cc" onclick="viewCulture('${c.id}')">
+          <div class="cc-name">${c.nom}</div>
+          <div class="cc-sub">${c.variete?c.variete+'<br>':''}📍 ${c.zone}</div>
+          <div style="font-size:12px;color:var(--text-light)">
+            <span class="dot ${dotCls[c.statut]||'da'}"></span>${dotLbl[c.statut]||'En cours'}
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+function setCF(z) { S.cFilter = z; render(); }
+
+// =====================================================
+// TODOS
+// =====================================================
+function renderTodos() {
+  const rem = S.todos.filter(t=>!t.fait);
+  const done = S.todos.filter(t=>t.fait);
+  let html = '';
+  SAISONS.forEach(s => {
+    const items = rem.filter(t=>t.saison===s);
+    if (!items.length) return;
+    html += `<div class="stitle">${s}</div><div class="card" style="padding:0 14px">
+      ${items.map(renderTodoItem).join('')}</div>`;
+  });
+  const other = rem.filter(t=>!SAISONS.includes(t.saison));
+  if (other.length) html += `<div class="stitle">Autres</div><div class="card" style="padding:0 14px">${other.map(renderTodoItem).join('')}</div>`;
+  if (done.length) html += `<div class="stitle">Terminé (${done.length})</div><div class="card" style="padding:0 14px;opacity:.55">${done.map(renderTodoItem).join('')}</div>`;
+  return html || `<div class="empty"><div class="empty-ico">✅</div><p>Tout est fait !</p></div>`;
+}
+function renderTodoItem(t) {
+  return `<div class="ti">
+    <div class="tck ${t.fait?'on':''}" onclick="toggleTodo('${t.id}')">
+      ${t.fait?`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`:''}
+    </div>
+    <div class="ttxt ${t.fait?'done':''}">
+      ${t.priorite==='haute'&&!t.fait?'🔴 ':''}${esc(t.texte)}
+    </div>
+    <button class="del-btn" onclick="delTodo('${t.id}',event)">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+      </svg>
+    </button>
+  </div>`;
+}
+
+// =====================================================
+// MODALS — SESSION
+// =====================================================
+let _acIdx = 0;
+function openNewSession() {
+  _acIdx = 0;
+  const today = new Date().toISOString().split('T')[0];
+  modal(`
+    <div class="mo-handle"></div>
+    <div class="mo-title">Nouvelle session</div>
+    <div class="fg"><label class="flabel">Date</label>
+      <input type="date" id="f-date" class="fi" value="${today}">
+    </div>
+    <div class="fg"><label class="flabel">Météo</label>
+      <div class="mbts">
+        <button class="mbt on" data-m="☀️" onclick="selM(this)">☀️</button>
+        <button class="mbt" data-m="⛅" onclick="selM(this)">⛅</button>
+        <button class="mbt" data-m="🌧️" onclick="selM(this)">🌧️</button>
+        <button class="mbt" data-m="🌩️" onclick="selM(this)">🌩️</button>
+      </div>
+    </div>
+    <div class="fg"><label class="flabel">Zones travaillées</label>
+      <div class="zpills">
+        ${ZONES.map(z=>`<button class="zpill" data-z="${z}" onclick="this.classList.toggle('on')">${z}</button>`).join('')}
+      </div>
+    </div>
+    <div class="fg"><label class="flabel">Constats / Observations</label>
+      <textarea id="f-constats" class="fi fta" placeholder="Ce que j'observe aujourd'hui..."></textarea>
+    </div>
+    <div class="fg"><label class="flabel">Actions réalisées</label>
+      <div id="f-actions"></div>
+      <button class="add-act" onclick="addAct()">+ Ajouter une action</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn btn-o" style="flex:1" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-p" style="flex:2" onclick="saveSession()">Enregistrer</button>
+    </div>
+  `);
+}
+function selM(b) { document.querySelectorAll('.mbt').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
+function addAct() {
+  const id = 'ac-'+(++_acIdx);
+  const d = document.createElement('div');
+  d.className='ae'; d.id=id;
+  d.innerHTML=`
+    <div class="ae-hdr">
+      <span style="font-size:12px;font-weight:700;color:var(--text-light)">Action ${_acIdx}</span>
+      <button onclick="document.getElementById('${id}').remove()" style="border:none;background:none;font-size:18px;color:#999;cursor:pointer">✕</button>
+    </div>
+    <input type="text" class="fi act-txt" placeholder="Décris l'action..." style="margin-bottom:8px">
+    <div class="rbts">
+      <button class="rbt" data-v="succes" onclick="selR(this)">✓ Succès</button>
+      <button class="rbt" data-v="mitige" onclick="selR(this)">~ Mitigé</button>
+      <button class="rbt" data-v="echec"  onclick="selR(this)">✗ Échec</button>
+      <button class="rbt" data-v="encours" onclick="selR(this)">… En cours</button>
+    </div>`;
+  document.getElementById('f-actions').appendChild(d);
+}
+function selR(b) {
+  const map = {succes:'rs',mitige:'rm',echec:'re',encours:'rc'};
+  b.closest('.rbts').querySelectorAll('.rbt').forEach(x=>{x.className='rbt';});
+  b.classList.add(map[b.dataset.v]);
+}
+function saveSession() {
+  const date = document.getElementById('f-date').value;
+  if (!date) { snack('Renseigne la date'); return; }
+  const meteo = document.querySelector('.mbt.on')?.dataset.m||'';
+  const zones = [...document.querySelectorAll('.zpill.on')].map(z=>z.dataset.z);
+  const constats = document.getElementById('f-constats').value.trim();
+  const actions = [...document.querySelectorAll('.ae')].map(e=>{
+    const txt = e.querySelector('.act-txt').value.trim();
+    const rb  = e.querySelector('.rbt[class*=" r"]') || e.querySelector('.rbt.rs,.rbt.rm,.rbt.re,.rbt.rc');
+    const res = rb ? rb.dataset.v : 'encours';
+    return txt ? {id:uid(),texte:txt,resultat:res} : null;
+  }).filter(Boolean);
+  S.sessions.push({id:uid(),date,meteo,zones,constats,actions});
+  save(); closeModal(); render(); snack('Session enregistrée ✓');
+}
+
+// =====================================================
+// MODALS — VIEW SESSION
+// =====================================================
+function viewSession(id) {
+  const s = S.sessions.find(x=>x.id===id);
+  if (!s) return;
+  const ic = {succes:'✓',mitige:'~',echec:'✗',encours:'…'};
+  const bc = {succes:'bs',mitige:'bm',echec:'be',encours:'bc'};
+  modal(`
+    <div class="mo-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <div>
+        <div style="font-size:22px;font-weight:800;color:var(--g-dark)">${s.meteo||''} ${fmtDate(s.date)}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${[...new Set(s.zones)].map(z=>`<span class="badge bz">${z}</span>`).join('')}</div>
+      </div>
+      <button class="btn btn-d" onclick="delSession('${s.id}')">Supprimer</button>
+    </div>
+    ${s.constats?`<div class="constat-box"><span style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.7px;display:block;margin-bottom:6px">Constats</span>${esc(s.constats)}</div>`:''}
+    ${s.actions.length?`
+      <div style="font-size:11px;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Actions (${s.actions.length})</div>
+      <div class="card" style="padding:0 14px">
+        ${s.actions.map(a=>`
+          <div class="ai">
+            <span class="badge ${bc[a.resultat]||'bc'}" style="flex-shrink:0">${ic[a.resultat]||'…'}</span>
+            <div style="flex:1">
+              <div style="font-size:14px">${esc(a.texte)}</div>
+              ${a.note?`<div style="font-size:12px;color:var(--text-light);margin-top:2px">${esc(a.note)}</div>`:''}
+            </div>
+          </div>`).join('')}
+      </div>` : ''}
+    <button class="btn btn-o" style="width:100%;margin-top:16px" onclick="closeModal()">Fermer</button>
+  `);
+}
+function delSession(id) {
+  if (!confirm('Supprimer cette session ?')) return;
+  S.sessions = S.sessions.filter(s=>s.id!==id);
+  save(); closeModal(); render(); snack('Session supprimée');
+}
+
+// =====================================================
+// MODALS — CULTURE
+// =====================================================
+function openNewCulture() {
+  modal(`
+    <div class="mo-handle"></div>
+    <div class="mo-title">Nouvelle culture</div>
+    <div class="fg"><label class="flabel">Nom</label>
+      <input type="text" id="c-nom" class="fi" placeholder="ex: Haricots, Melons…">
+    </div>
+    <div class="fg"><label class="flabel">Variété (optionnel)</label>
+      <input type="text" id="c-var" class="fi" placeholder="ex: Nantes, Marmande…">
+    </div>
+    <div class="fg"><label class="flabel">Zone</label>
+      <select id="c-zone" class="fi">${ZONES.map(z=>`<option>${z}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label class="flabel">Notes</label>
+      <textarea id="c-note" class="fi fta" placeholder="Observations, conseils…"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-o" style="flex:1" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-p" style="flex:2" onclick="saveCulture()">Ajouter</button>
+    </div>
+  `);
+}
+function saveCulture() {
+  const nom = document.getElementById('c-nom').value.trim();
+  if (!nom) { snack('Renseigne le nom'); return; }
+  S.cultures.push({id:uid(),nom,variete:document.getElementById('c-var').value.trim(),zone:document.getElementById('c-zone').value,note:document.getElementById('c-note').value.trim(),statut:'encours'});
+  save(); closeModal(); render(); snack('Culture ajoutée ✓');
+}
+function viewCulture(id) {
+  const c = S.cultures.find(x=>x.id===id);
+  if (!c) return;
+  const sl = {succes:'✓ Succès',encours:'⚙ En cours',echec:'✗ Échec'};
+  const sc = {succes:'bs',encours:'bc',echec:'be'};
+  modal(`
+    <div class="mo-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <div>
+        <div style="font-size:22px;font-weight:800;color:var(--g-dark)">${c.nom}</div>
+        ${c.variete?`<div style="font-size:14px;color:var(--text-light)">${c.variete}</div>`:''}
+      </div>
+      <span class="badge ${sc[c.statut]||'bc'}">${sl[c.statut]||'En cours'}</span>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text-light)">Zone</div>
+      <div style="font-size:16px;font-weight:700;margin-top:2px">📍 ${c.zone}</div>
+    </div>
+    <div class="flabel" style="margin-bottom:8px">Statut</div>
+    <div class="rbts" style="margin-bottom:14px">
+      <button class="rbt ${c.statut==='succes'?'rs':''}" data-v="succes" onclick="updCS('${c.id}','succes',this)">✓ Succès</button>
+      <button class="rbt ${c.statut==='encours'?'rc':''}" data-v="encours" onclick="updCS('${c.id}','encours',this)">⚙ En cours</button>
+      <button class="rbt ${c.statut==='echec'?'re':''}" data-v="echec"  onclick="updCS('${c.id}','echec',this)">✗ Échec</button>
+    </div>
+    <div class="flabel" style="margin-bottom:8px">Notes</div>
+    <textarea id="cn-note" class="fi fta" style="margin-bottom:14px">${esc(c.note||'')}</textarea>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-d" style="flex:1" onclick="delCulture('${c.id}')">Supprimer</button>
+      <button class="btn btn-p" style="flex:2" onclick="saveCNote('${c.id}')">Enregistrer</button>
+    </div>
+  `);
+}
+function updCS(id,statut,btn) {
+  const c = S.cultures.find(x=>x.id===id);
+  if (!c) return;
+  c.statut = statut;
+  save();
+  const map={succes:'rs',encours:'rc',echec:'re'};
+  btn.closest('.rbts').querySelectorAll('.rbt').forEach(b=>b.className='rbt');
+  btn.classList.add(map[statut]);
+  snack('Statut mis à jour');
+}
+function saveCNote(id) {
+  const c = S.cultures.find(x=>x.id===id);
+  if (!c) return;
+  c.note = document.getElementById('cn-note').value.trim();
+  save(); closeModal(); render(); snack('Culture mise à jour ✓');
+}
+function delCulture(id) {
+  if (!confirm('Supprimer cette culture ?')) return;
+  S.cultures = S.cultures.filter(c=>c.id!==id);
+  save(); closeModal(); render(); snack('Culture supprimée');
+}
+
+// =====================================================
+// MODALS — TODO
+// =====================================================
+function openNewTodo() {
+  window._prio = 'haute';
+  modal(`
+    <div class="mo-handle"></div>
+    <div class="mo-title">Nouvelle tâche</div>
+    <div class="fg"><label class="flabel">Tâche</label>
+      <input type="text" id="t-txt" class="fi" placeholder="Quoi faire ?">
+    </div>
+    <div class="fg"><label class="flabel">Période</label>
+      <select id="t-sai" class="fi">${SAISONS.map(s=>`<option>${s}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label class="flabel">Priorité</label>
+      <div class="rbts">
+        <button class="rbt re" id="pb-h" onclick="selPrio('haute')">🔴 Haute</button>
+        <button class="rbt" id="pb-n" onclick="selPrio('normale')">⚪ Normale</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-o" style="flex:1" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-p" style="flex:2" onclick="saveTodo()">Ajouter</button>
+    </div>
+  `);
+}
+function selPrio(p) {
+  window._prio = p;
+  document.getElementById('pb-h').className = 'rbt'+(p==='haute'?' re':'');
+  document.getElementById('pb-n').className = 'rbt'+(p==='normale'?' rc':'');
+}
+function saveTodo() {
+  const texte = document.getElementById('t-txt').value.trim();
+  if (!texte) { snack('Renseigne la tâche'); return; }
+  S.todos.push({id:uid(),texte,saison:document.getElementById('t-sai').value,priorite:window._prio||'normale',fait:false});
+  save(); closeModal(); render(); snack('Tâche ajoutée ✓');
+}
+function toggleTodo(id) {
+  const t = S.todos.find(x=>x.id===id);
+  if (t) { t.fait=!t.fait; save(); render(); }
+}
+function delTodo(id,e) {
+  e.stopPropagation();
+  S.todos = S.todos.filter(t=>t.id!==id);
+  save(); render();
+}
+
+// =====================================================
+// MODAL ENGINE
+// =====================================================
+function modal(html) {
+  closeModal();
+  const ov = document.createElement('div');
+  ov.className='mo'; ov.id='mo';
+  ov.onclick = e => { if(e.target===ov) closeModal(); };
+  const box = document.createElement('div');
+  box.className='mo-box'; box.innerHTML=html;
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  setTimeout(()=>{ const fi=box.querySelector('input:not([type=date]),textarea'); if(fi) fi.focus(); },300);
+}
+function closeModal() { document.getElementById('mo')?.remove(); }
+
+// =====================================================
+// UTILS
+// =====================================================
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function snack(msg) {
+  const el = document.getElementById('snack');
+  el.textContent=msg; el.style.display='block';
+  clearTimeout(snack._t);
+  snack._t = setTimeout(()=>{ el.style.display='none'; }, 2600);
+}
+
+// =====================================================
+// INIT
+// =====================================================
+load();
+render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
