@@ -188,12 +188,13 @@
     .del-block-btn { background:rgba(255,255,255,.2); border:none; color:white; border-radius:8px; padding:4px 8px; font-size:12px; cursor:pointer; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
 
     /* PHOTOS TAB */
-    .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
-    .photo-card { position:relative; border-radius:12px; overflow:hidden; aspect-ratio:1; background:#E0E0E0; box-shadow:0 1px 6px rgba(0,0,0,.1); cursor:pointer; }
-    .photo-thumb { width:100%; height:100%; object-fit:cover; display:block; }
-    .photo-del { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.55); border:none; color:white; border-radius:50%; width:26px; height:26px; font-size:14px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; }
-    .photo-date-badge { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,.5)); color:white; font-size:11px; padding:6px 8px 5px; }
-    .photo-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:32px; background:#F5F5F5; color:#BDBDBD; }
+    .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+    .photo-card { position:relative; border-radius:14px; overflow:hidden; aspect-ratio:4/3; background:#E8F5E9; box-shadow:0 2px 8px rgba(0,0,0,.12); cursor:pointer; }
+    .photo-card img, .photo-card video { width:100%; height:100%; object-fit:cover; display:block; transition:opacity .3s; }
+    .photo-card img[data-loaded="0"] { opacity:0; }
+    .photo-del { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.55); border:none; color:white; border-radius:50%; width:28px; height:28px; font-size:15px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; }
+    .photo-date-badge { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,.6)); color:white; font-size:11px; padding:10px 8px 5px; }
+    .photo-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:32px; background:#F1F8E9; color:#BDBDBD; }
 
     /* VOICE MODAL */
     .vmo { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:400; display:flex; align-items:center; justify-content:center; padding:20px; }
@@ -938,7 +939,7 @@ function renderPhotos() {
       html += `<div class="photo-card" onclick="viewPhotoModal('${p.id}')">
         ${isVideo
           ? `<video id="pimg-${p.id}" style="width:100%;height:100%;object-fit:cover" playsinline muted></video>`
-          : `<img id="pimg-${p.id}" src="" class="photo-thumb" alt="">`}
+          : `<img id="pimg-${p.id}" data-loaded="0" class="photo-thumb" alt="">`}
         <div class="photo-date-badge">${fmtDateShort(p.date)}</div>
         <button class="photo-del" onclick="deletePhoto('${p.id}',event)">✕</button>
       </div>`;
@@ -951,7 +952,13 @@ function renderPhotos() {
 function loadPhotoThumbs() {
   S.photos.forEach(p => {
     const el = document.getElementById('pimg-'+p.id);
-    if (el && !el.src) getBlobUrl(p.id, url => { if(el && url) el.src = url; });
+    if (!el) return;
+    getBlobUrl(p.id, url => {
+      if (!url) return;
+      el.src = url;
+      el.setAttribute('data-loaded','1');
+      el.style.opacity = '1';
+    });
   });
 }
 function openCamera() { document.getElementById('photo-file').click(); }
