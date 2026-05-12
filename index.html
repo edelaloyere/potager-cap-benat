@@ -230,6 +230,23 @@
     /* SNACK */
     .snack { position:fixed; bottom:calc(var(--nav-h) + var(--safe-b) + 14px); left:14px; right:14px; background:#323232; color:white; padding:13px 15px; border-radius:10px; font-size:14px; z-index:500; display:none; animation:fadeUp .25s ease; }
     @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+    /* WEATHER WIDGET */
+    .hdr-weather { font-size:13px; font-weight:700; color:rgba(255,255,255,.92); white-space:nowrap; align-self:center; line-height:1; }
+
+    /* QUICK ACTIONS BAR */
+    .quick-bar { display:flex; gap:8px; margin-bottom:14px; }
+    .quick-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:11px 8px; background:rgba(255,255,255,.93); border:1.5px solid rgba(76,175,80,.18); border-radius:12px; font-size:13px; font-weight:600; color:var(--g-dark); cursor:pointer; -webkit-tap-highlight-color:transparent; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+
+    /* SOWING CALENDAR */
+    .cal-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:12px; border:1px solid #E0E0E0; }
+    .cal-table { border-collapse:collapse; font-size:11px; width:100%; min-width:560px; }
+    .cal-table th { background:var(--g-dark); color:white; padding:7px 3px; text-align:center; font-size:10px; font-weight:700; }
+    .cal-table th:first-child { text-align:left; min-width:96px; padding-left:8px; }
+    .cal-table td { padding:6px 3px; text-align:center; border-bottom:1px solid #F5F5F5; background:white; }
+    .cal-table td:first-child { text-align:left; font-size:11px; font-weight:600; padding-left:8px; background:white; }
+    .cal-table tr:hover td { background:#F9FFF9; }
+    .cal-legend { display:flex; gap:10px; flex-wrap:wrap; font-size:12px; margin-bottom:12px; color:var(--tl); }
   </style>
 </head>
 <body>
@@ -239,7 +256,10 @@
       <h1 id="hdr-title">Mon Potager</h1>
       <p id="hdr-sub">Cap Bénat — Bormes-les-Mimosas</p>
     </div>
-    <div class="hdr-right" id="hdr-right"></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      <div class="hdr-right" id="hdr-right"></div>
+      <div class="hdr-weather" id="hdr-weather"></div>
+    </div>
   </div>
   <div id="main"></div>
   <nav class="bnav">
@@ -270,6 +290,27 @@
 const S = { tab:'journal', sessions:[], todos:[], cultures:[], planning:[], photos:[], cFilter:'Tous', planEdit:false };
 const ZONES = ['Restanque','Zone vignes','Devant maison','Près cuisine'];
 const GARDEN_EMOJIS = ['💧','🌱','🌿','🍅','🥕','🫑','🥒','🥬','🥦','🌽','🍓','🍇','🍊','🍋','🌸','🌻','🪴','🌳','🌾','🍂','🍁','❄️','☀️','⛅','🌧️','🌦️','🌩️','🪣','✂️','⛏️','🔧','📋','⚠️','🏗️','🛒','🧹','🧄','🥗','🥔','📌','🔄','🪱','🐛','🐝','🐞'];
+// si=semis intérieur, se=semis extérieur, re=repiquage, rc=récolte (mois 0=jan…11=déc)
+const SOWING_CAL = [
+  { nom:'Tomates',     si:[1,2],    se:[],           re:[3,4],      rc:[6,7,8,9]       },
+  { nom:'Aubergines',  si:[1,2],    se:[],           re:[3,4],      rc:[7,8,9]         },
+  { nom:'Courgettes',  si:[2,3],    se:[],           re:[4,5],      rc:[5,6,7,8]       },
+  { nom:'Concombres',  si:[2,3],    se:[],           re:[4,5],      rc:[5,6,7,8]       },
+  { nom:'Haricots',    si:[],       se:[3,4,5],      re:[],         rc:[6,7,8]         },
+  { nom:'Fèves',       si:[],       se:[9,10],       re:[],         rc:[3,4,5]         },
+  { nom:'Pois',        si:[],       se:[9,10],       re:[],         rc:[3,4,5]         },
+  { nom:'Poireaux',    si:[0,1],    se:[],           re:[2,3],      rc:[9,10,11]       },
+  { nom:'Laitues',     si:[1,2,7,8],se:[2,3,8,9],   re:[3,4,9,10], rc:[4,5,9,10,11]  },
+  { nom:'Carottes',    si:[],       se:[2,3,4,7,8],  re:[],         rc:[6,7,10,11]     },
+  { nom:'Radis',       si:[],       se:[2,3,4,7,8,9],re:[],         rc:[3,4,5,8,9,10] },
+  { nom:'Épinards',    si:[7,8],    se:[8,9],        re:[9,10],     rc:[11,0,1,2]      },
+  { nom:'Choux',       si:[5,6,7],  se:[],           re:[7,8,9],    rc:[10,11,0,1]     },
+  { nom:'Betteraves',  si:[6,7],    se:[3,4],        re:[7,8],      rc:[9,10,11]       },
+  { nom:'Mâche',       si:[],       se:[6,7,8,9],    re:[],         rc:[10,11,0,1]     },
+  { nom:'Roquette',    si:[],       se:[2,3,4,7,8],  re:[],         rc:[3,4,5,8,9]    },
+  { nom:'Ail/Échalotes',si:[],     se:[9,10],        re:[],         rc:[5,6]           },
+  { nom:'Pdts de terre',si:[],     se:[1,2,3],       re:[],         rc:[6,7,8]         },
+];
 
 function save() {
   localStorage.setItem('potager_v5', JSON.stringify({
@@ -578,7 +619,7 @@ function hdrButtons() {
   if (S.tab === 'planning') {
     return S.planEdit
       ? `<button class="hdr-btn active" onclick="S.planEdit=false;save();render()">✓ Terminer</button>`
-      : `<button class="hdr-btn" onclick="S.planEdit=true;render()">✏️ Modifier</button>`;
+      : `<button class="hdr-btn" onclick="showSowingCalendar()">🗓</button><button class="hdr-btn" onclick="S.planEdit=true;render()">✏️ Modifier</button>`;
   }
   return '';
 }
@@ -594,8 +635,12 @@ function addFab(fn) {
 // JOURNAL
 // =====================================================
 function renderJournal() {
-  if (!S.sessions.length) return `<div class="empty"><div class="empty-ico">🌱</div><p>Aucune session.<br>Appuie sur + pour commencer.</p></div>`;
-  return [...S.sessions].sort((a,b) => b.date.localeCompare(a.date)).map(s => {
+  const quickBar = `<div class="quick-bar">
+    <button class="quick-btn" onclick="logArrosage()">💧 Arrosage rapide</button>
+    <button class="quick-btn" onclick="exportPDF()">📄 Export PDF</button>
+  </div>`;
+  if (!S.sessions.length) return quickBar+`<div class="empty"><div class="empty-ico">🌱</div><p>Aucune session.<br>Appuie sur + pour commencer.</p></div>`;
+  return quickBar+[...S.sessions].sort((a,b) => b.date.localeCompare(a.date)).map(s => {
     const ns = s.actions.filter(a=>a.resultat==='succes').length;
     const nm = s.actions.filter(a=>a.resultat==='mitige').length;
     const ne = s.actions.filter(a=>a.resultat==='echec').length;
@@ -1241,10 +1286,11 @@ function viewSession(id) {
           <div style="flex:1"><div style="font-size:14px">${esc(a.texte)}</div>
           ${a.note?`<div style="font-size:12px;color:var(--tl);margin-top:2px">${esc(a.note)}</div>`:''}</div></div>`).join('')}
       </div>`:''}
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="btn btn-d btn-sm" style="flex:1" onclick="delSession('${s.id}')">Supprimer</button>
-      <button class="btn btn-o" style="flex:1" onclick="closeModal();editSession('${s.id}')">✏️ Modifier</button>
-      <button class="btn btn-p" style="flex:1" onclick="closeModal()">Fermer</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
+      <button class="btn btn-d btn-sm" onclick="delSession('${s.id}')">🗑 Supprimer</button>
+      <button class="btn btn-o btn-sm" onclick="shareSession('${s.id}')">📤 Partager</button>
+      <button class="btn btn-o btn-sm" onclick="closeModal();editSession('${s.id}')">✏️ Modifier</button>
+      <button class="btn btn-p btn-sm" onclick="closeModal()">Fermer</button>
     </div>
   `);
 }
@@ -1422,9 +1468,168 @@ function snack(msg) {
 }
 
 // =====================================================
+// MÉTÉO EN-TÊTE
+// =====================================================
+async function fetchCurrentWeather() {
+  try {
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=43.14&longitude=6.38&current_weather=true&timezone=Europe%2FParis');
+    const d = await r.json();
+    const cw = d.current_weather;
+    if (!cw) return;
+    const el = document.getElementById('hdr-weather');
+    if (el) el.textContent = wmoToEmoji(cw.weathercode) + ' ' + Math.round(cw.temperature) + '°';
+  } catch(e) {}
+}
+
+// =====================================================
+// ARROSAGE RAPIDE
+// =====================================================
+function logArrosage() {
+  const today = new Date().toISOString().split('T')[0];
+  modal(`
+    <div class="mo-handle" onclick="closeModal()"></div>
+    <div class="mo-title">💧 Arrosage rapide</div>
+    <div class="fg"><label class="flabel">Date</label>
+      <input type="date" id="arr-date" class="fi" value="${today}">
+    </div>
+    <div class="fg"><label class="flabel">Zones (optionnel)</label>
+      <div class="zpills">${ZONES.map(z=>`<button class="zpill" data-z="${z}" onclick="this.classList.toggle('on')">${z}</button>`).join('')}</div>
+    </div>
+    <div class="fg"><label class="flabel">Note (optionnel)</label>
+      <input type="text" id="arr-note" class="fi" placeholder="ex: 30 min + urée 10%">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-o" style="flex:1" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-p" style="flex:2" onclick="saveArrosage()">💧 Enregistrer</button>
+    </div>
+  `);
+}
+function saveArrosage() {
+  const date = document.getElementById('arr-date').value;
+  if (!date) { snack('Renseigne la date'); return; }
+  const zones = [...document.querySelectorAll('.zpill.on')].map(z => z.dataset.z);
+  const note  = document.getElementById('arr-note').value.trim();
+  const texte = note ? `Arrosage — ${note}` : 'Arrosage';
+  S.sessions.push({ id:uid(), date, meteo:'💧', zones, constats:'', actions:[{id:uid(),texte,resultat:'succes'}] });
+  save(); closeModal(); render(); snack('Arrosage enregistré 💧');
+}
+
+// =====================================================
+// PARTAGE DE SESSION
+// =====================================================
+function shareSession(id) {
+  const s = S.sessions.find(x => x.id === id); if (!s) return;
+  const ic = { succes:'✓', mitige:'~', echec:'✗', encours:'…' };
+  let text = `🌱 Potager Cap Bénat — ${fmtDate(s.date)}\n`;
+  if (s.meteo) text += `Météo : ${s.meteo}\n`;
+  if (s.zones.length) text += `Zones : ${s.zones.join(', ')}\n`;
+  if (s.constats) text += `\nConstats :\n${s.constats}\n`;
+  if (s.actions.length) {
+    text += `\nActions (${s.actions.length}) :\n`;
+    s.actions.forEach(a => {
+      text += `${ic[a.resultat]||'…'} ${a.texte}`;
+      if (a.note) text += ` (${a.note})`;
+      text += '\n';
+    });
+  }
+  if (navigator.share) {
+    navigator.share({ title:'Mon Potager — Cap Bénat', text }).catch(()=>{});
+  } else {
+    navigator.clipboard?.writeText(text)
+      .then(() => snack('Copié dans le presse-papiers ✓'))
+      .catch(() => snack('Partage non disponible'));
+  }
+}
+
+// =====================================================
+// EXPORT PDF
+// =====================================================
+function exportPDF() {
+  if (!S.sessions.length) { snack('Aucune session à exporter'); return; }
+  const sessions = [...S.sessions].sort((a,b) => b.date.localeCompare(a.date));
+  const ic = { succes:'✓', mitige:'~', echec:'✗', encours:'…' };
+  const bc = { succes:'#43A047', mitige:'#FF8F00', echec:'#EF5350', encours:'#42A5F5' };
+  let body = '';
+  sessions.forEach(s => {
+    const ns = s.actions.filter(a=>a.resultat==='succes').length;
+    const ne = s.actions.filter(a=>a.resultat==='echec').length;
+    body += `<div class="session">
+      <div class="s-hdr">
+        <span class="s-date">${s.meteo||''} ${fmtDate(s.date)}</span>
+        <span class="s-stats">${ns?`<b style="color:#43A047">✓${ns}</b> `:''}${ne?`<b style="color:#EF5350">✗${ne}</b>`:''}
+        </span>
+      </div>
+      ${s.zones.length?`<div class="s-zones">📍 ${s.zones.join(' · ')}</div>`:''}
+      ${s.constats?`<div class="s-constats">${s.constats.replace(/\n/g,'<br>')}</div>`:''}
+      ${s.actions.map(a=>`<div class="action"><span style="color:${bc[a.resultat]||'#42A5F5'};font-weight:700">${ic[a.resultat]||'…'}</span>
+        ${a.texte}${a.note?`<span class="a-note"> — ${a.note}</span>`:''}</div>`).join('')}
+    </div>`;
+  });
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+  <title>Mon Potager — Cap Bénat</title>
+  <style>
+    body{font-family:-apple-system,Helvetica,sans-serif;color:#212121;padding:24px 20px;max-width:720px;margin:0 auto;font-size:13px}
+    h1{color:#2E7D32;font-size:22px;margin-bottom:4px}
+    .sub{color:#757575;font-size:12px;margin-bottom:20px}
+    .session{border:1px solid #E0E0E0;border-radius:8px;padding:14px;margin-bottom:16px;page-break-inside:avoid}
+    .s-hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+    .s-date{font-weight:700;font-size:14px;color:#2E7D32}
+    .s-stats{font-size:12px}
+    .s-zones{font-size:11px;color:#757575;margin-bottom:8px}
+    .s-constats{background:#F5F5F5;border-radius:6px;padding:8px;font-size:12px;margin-bottom:8px;white-space:pre-line}
+    .action{padding:3px 0;border-bottom:1px solid #F5F5F5;font-size:12px}
+    .a-note{color:#757575;font-size:11px}
+    @media print{body{padding:0}.session{break-inside:avoid}}
+  </style></head><body>
+  <h1>🌱 Mon Potager — Cap Bénat</h1>
+  <div class="sub">Bilan au ${new Date().toLocaleDateString('fr-FR')} — ${sessions.length} session(s)</div>
+  ${body}</body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { snack('Autorise les popups pour exporter'); return; }
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 600);
+}
+
+// =====================================================
+// CALENDRIER DE SEMIS
+// =====================================================
+function showSowingCalendar() {
+  const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const cur = new Date().getMonth();
+  let thead = `<tr><th>Légume</th>${months.map((m,i)=>`<th class="${i===cur?'cal-cur':''}">${m}</th>`).join('')}</tr>`;
+  let tbody = SOWING_CAL.map(v => {
+    let row = `<tr><td>${v.nom}</td>`;
+    for (let m=0; m<12; m++) {
+      const si = v.si.includes(m), se = v.se.includes(m), re = v.re.includes(m), rc = v.rc.includes(m);
+      let cell = '';
+      if (si) cell += '🌱';
+      if (se) cell += '🌿';
+      if (re) cell += '↳';
+      if (rc) cell += '🥗';
+      row += `<td style="${m===cur?'outline:2px solid #2E7D32;':''}">${cell}</td>`;
+    }
+    return row + '</tr>';
+  }).join('');
+  modal(`
+    <div class="mo-handle" onclick="closeModal()"></div>
+    <div class="mo-title">🗓 Calendrier de semis</div>
+    <div class="cal-legend">
+      <span>🌱 Semis intérieur</span>
+      <span>🌿 Semis extérieur</span>
+      <span>↳ Repiquage</span>
+      <span>🥗 Récolte</span>
+    </div>
+    <div class="cal-wrap"><table class="cal-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>
+    <p style="font-size:11px;color:var(--tl);margin-top:10px;text-align:center">Adapté au climat méditerranéen — Cap Bénat</p>
+    <button class="btn btn-p" style="width:100%;margin-top:12px" onclick="closeModal()">Fermer</button>
+  `);
+}
+
+// =====================================================
 // INIT
 // =====================================================
-load(); render();
+load(); render(); fetchCurrentWeather();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
