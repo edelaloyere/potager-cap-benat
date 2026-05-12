@@ -178,7 +178,7 @@
     .del-block-btn { background:rgba(255,255,255,.2); border:none; color:white; border-radius:8px; padding:4px 8px; font-size:12px; cursor:pointer; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
 
     /* EMOJI PICKER */
-    .emoji-picker { position:absolute; left:0; top:calc(100% + 4px); background:white; border-radius:14px; box-shadow:0 6px 28px rgba(0,0,0,.22); padding:10px; display:grid; grid-template-columns:repeat(7,1fr); gap:2px; z-index:350; width:268px; }
+    .emoji-picker { position:absolute; left:0; top:calc(100% + 4px); background:white; border-radius:14px; box-shadow:0 6px 28px rgba(0,0,0,.22); padding:10px; display:grid; grid-template-columns:repeat(8,1fr); gap:2px; z-index:350; width:300px; max-height:260px; overflow-y:auto; }
     .emoji-picker button { background:none; border:none; font-size:20px; padding:5px 3px; cursor:pointer; border-radius:6px; -webkit-tap-highlight-color:transparent; }
 
     /* PHOTOS TAB */
@@ -262,6 +262,7 @@
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <div style="display:flex;gap:6px;align-items:center">
         <div class="hdr-right" id="hdr-right"></div>
+        <button class="hdr-btn" onclick="location.reload()" title="Rafraîchir">↺</button>
         <button class="hdr-btn" onclick="showSettings()" title="Paramètres">⚙️</button>
       </div>
       <div class="hdr-weather" id="hdr-weather"></div>
@@ -295,7 +296,26 @@
 // =====================================================
 const S = { tab:'journal', sessions:[], todos:[], cultures:[], planning:[], photos:[], cFilter:'Tous', planEdit:false };
 const ZONES = ['Restanque','Zone vignes','Devant maison','Près cuisine'];
-const GARDEN_EMOJIS = ['💧','🌱','🌿','🍅','🥕','🫑','🥒','🥬','🥦','🌽','🍓','🍇','🍊','🍋','🌸','🌻','🪴','🌳','🌾','🍂','🍁','❄️','☀️','⛅','🌧️','🌦️','🌩️','🪣','✂️','⛏️','🔧','📋','⚠️','🏗️','🛒','🧹','🧄','🥗','🥔','📌','🔄','🪱','🐛','🐝','🐞'];
+const GARDEN_EMOJIS = [
+  // Plantes & herbes
+  '🌱','🌿','🍀','🎋','🎍','🌾','🪴','🌵','🪸',
+  // Arbres
+  '🌲','🌳','🌴','🫧',
+  // Fleurs
+  '🌸','🌹','🌺','🌻','🌼','💐','🌷','🪷',
+  // Fruits
+  '🍅','🍓','🍇','🍊','🍋','🍎','🍐','🍑','🍒','🫐','🍈','🥭','🍍','🍌','🍉','🫒',
+  // Légumes
+  '🥕','🫑','🥒','🥬','🥦','🌽','🍆','🥑','🧅','🧄','🥔','🍠','🫘','🥜','🌶️','🍄','🫚',
+  // Insectes & animaux du jardin
+  '🐝','🐛','🪱','🐌','🦋','🐞','🐜','🦎','🐸','🦔','🐦','🐦‍⬛',
+  // Outils
+  '🪣','✂️','⛏️','🔧','🧹','🚿','💊','🌡️','🪤','🪝',
+  // Météo & saisons
+  '☀️','🌤️','⛅','🌧️','🌦️','🌩️','❄️','💨','🌈',
+  // Divers jardin
+  '🍂','🍁','🌰','💧','📌','⚠️','🔄','📋','🛒','🏗️',
+];
 // si=semis intérieur, se=semis extérieur, re=repiquage, rc=récolte (mois 0=jan…11=déc)
 const SOWING_CAL = [
   { nom:'Tomates',     si:[1,2],    se:[],           re:[3,4],      rc:[6,7,8,9]       },
@@ -387,16 +407,20 @@ function saisonForBlock(block) { return block ? block.label : 'Autres'; }
 function syncPlanningToTodos() {
   S.planning.forEach(block => {
     block.tasks.forEach(task => {
+      if (!task.id) task.id = uid();
       if (task.todoId) {
-        // Keep saison in sync with block label
         const td = S.todos.find(t => t.id === task.todoId);
-        if (td) td.saison = saisonForBlock(block);
+        if (td) {
+          td.saison = saisonForBlock(block);
+          if (!td.planTaskId) td.planTaskId = task.id; // répare planTaskId manquant
+        }
         return;
       }
       const existing = S.todos.find(t => t.planTaskId === task.id);
       if (existing) { task.todoId = existing.id; existing.saison = saisonForBlock(block); return; }
-      // Répare les anciens todos sans planTaskId (migration) en les matchant par texte
-      const orphan = S.todos.find(t => t.fromPlanning && !t.planTaskId && t.texte === task.texte && t.saison === saisonForBlock(block));
+      // Répare les orphelins : match par texte normalisé, sans contrainte de saison
+      const norm = s => s?.trim().toLowerCase();
+      const orphan = S.todos.find(t => t.fromPlanning && !t.planTaskId && norm(t.texte) === norm(task.texte));
       if (orphan) { task.todoId = orphan.id; orphan.planTaskId = task.id; orphan.saison = saisonForBlock(block); return; }
       const todo = { id:uid(), texte:task.texte, saison:saisonForBlock(block),
         priorite:'normale', fait:false, fromPlanning:true, planTaskId:task.id };
@@ -974,8 +998,9 @@ function renderTodos() {
       if (todo.planTaskId && taskPosMap.has(todo.planTaskId)) {
         return taskPosMap.get(todo.planTaskId);
       }
-      // Fallback : match par texte (anciens todos sans planTaskId)
-      const textIdx = block.tasks.findIndex(t => t.texte === todo.texte);
+      // Fallback : match par texte normalisé (anciens todos sans planTaskId)
+      const normT = s => s?.trim().toLowerCase();
+      const textIdx = block.tasks.findIndex(t => normT(t.texte) === normT(todo.texte));
       if (textIdx !== -1) return textIdx;
       // Fallback : position fractionnaire entre todos planning voisins dans S.todos
       const myIdx = S.todos.indexOf(todo);
@@ -1007,7 +1032,7 @@ function renderTI(t) {
     </div>
     <div class="ttxt ${t.fait?'done':''}">
       ${t.priorite==='haute'&&!t.fait?'🔴 ':''}${esc(t.texte)}
-      ${fp?`<span class="badge bp" style="margin-left:5px;vertical-align:middle">📅</span>`:''}
+
     </div>
     <div class="ti-actions">
       ${!fp?`<button class="icon-btn" onclick="editTodo('${t.id}',event)">
