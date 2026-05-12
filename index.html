@@ -395,6 +395,9 @@ function syncPlanningToTodos() {
       }
       const existing = S.todos.find(t => t.planTaskId === task.id);
       if (existing) { task.todoId = existing.id; existing.saison = saisonForBlock(block); return; }
+      // Répare les anciens todos sans planTaskId (migration) en les matchant par texte
+      const orphan = S.todos.find(t => t.fromPlanning && !t.planTaskId && t.texte === task.texte && t.saison === saisonForBlock(block));
+      if (orphan) { task.todoId = orphan.id; orphan.planTaskId = task.id; orphan.saison = saisonForBlock(block); return; }
       const todo = { id:uid(), texte:task.texte, saison:saisonForBlock(block),
         priorite:'normale', fait:false, fromPlanning:true, planTaskId:task.id };
       task.todoId = todo.id;
@@ -971,6 +974,10 @@ function renderTodos() {
       if (todo.planTaskId && taskPosMap.has(todo.planTaskId)) {
         return taskPosMap.get(todo.planTaskId);
       }
+      // Fallback : match par texte (anciens todos sans planTaskId)
+      const textIdx = block.tasks.findIndex(t => t.texte === todo.texte);
+      if (textIdx !== -1) return textIdx;
+      // Fallback : position fractionnaire entre todos planning voisins dans S.todos
       const myIdx = S.todos.indexOf(todo);
       let prev = -1, next = N;
       for (const t of items) {
