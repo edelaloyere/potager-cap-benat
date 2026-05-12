@@ -66,7 +66,11 @@
   async function exportData() {
     showMsg('⏳ Export en cours, patiente…', 'progress');
     try {
-      const out = { ls: localStorage.getItem('potager_v5'), photos: [] };
+      // Cherche la clé la plus récente disponible
+      const lsRaw = localStorage.getItem('potager_v5')
+        || localStorage.getItem('potager_v4')
+        || localStorage.getItem('potager_v3');
+      const out = { ls: lsRaw, lsKey: 'potager_v5', photos: [] };
       await new Promise((res, rej) => {
         const r = indexedDB.open('potager_media', 1);
         r.onerror = () => res(); // pas de photos = pas grave
@@ -98,6 +102,10 @@
       a.download = 'potager-backup.json';
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      if (!out.ls) {
+        showMsg('⚠️ Aucune donnée trouvée dans cette app. Essaie d\'abord d\'ouvrir l\'app (pas migrate.html) sur cette URL, puis reviens ici.', 'err');
+        return;
+      }
       showMsg('✅ Export réussi ! <strong>' + out.photos.length + ' photo(s)</strong> incluse(s).<br>Maintenant va sur <strong>potager-app-one.vercel.app/migrate.html</strong> pour importer.', 'ok');
     } catch(e) {
       showMsg('❌ Erreur : ' + e.message, 'err');
@@ -109,7 +117,8 @@
     showMsg('⏳ Import en cours, patiente…', 'progress');
     try {
       const d = JSON.parse(await input.files[0].text());
-      if (d.ls) localStorage.setItem('potager_v5', d.ls);
+      // Toujours écrire sous potager_v5 (clé courante) quelle que soit l'origine
+    if (d.ls) localStorage.setItem('potager_v5', d.ls);
       const photos = d.photos || [];
       if (photos.length > 0) {
         await new Promise((res, rej) => {
