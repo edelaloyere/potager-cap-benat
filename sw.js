@@ -1,4 +1,4 @@
-const CACHE = 'potager-v15';
+const CACHE = 'potager-v16';
 const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {

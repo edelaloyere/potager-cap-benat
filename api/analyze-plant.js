@@ -5,8 +5,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
 
-  const { image, mediaType } = req.body || {};
-  if (!image) return res.status(400).json({ error: 'Image manquante' });
+  const { messages } = req.body || {};
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'Messages manquants' });
+  }
 
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -17,14 +19,9 @@ export default async function handler(req, res) {
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 350,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: image } },
-          { type: 'text', text: 'Analyse cette photo de plante de potager. En 3 points maximum : 1) identifie la plante si possible, 2) évalue son état de santé, 3) si tu détectes un problème (maladie, ravageur, carence, manque d\'eau), donne une recommandation concrète et actionnable. Réponse en français, ton direct et pratique, 2-3 phrases max.' }
-        ]
-      }]
+      max_tokens: 600,
+      system: 'Tu es un expert en jardinage potager. Analyse les photos de plantes avec précision : identifie la plante, évalue sa santé, détecte les maladies ou carences, et donne des conseils concrets. Réponds en français, ton direct et pratique. Sois concis (3-4 phrases max sauf si on te pose une question précise).',
+      messages
     })
   });
 
@@ -35,5 +32,5 @@ export default async function handler(req, res) {
   }
 
   const data = await r.json();
-  res.json({ analysis: data.content[0].text });
+  res.json({ reply: data.content[0].text });
 }

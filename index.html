@@ -262,6 +262,23 @@
     .cal-table td:first-child { text-align:left; font-size:11px; font-weight:600; padding-left:8px; background:white; }
     .cal-table tr:hover td { background:#F9FFF9; }
     .cal-legend { display:flex; gap:10px; flex-wrap:wrap; font-size:12px; margin-bottom:12px; color:var(--tl); }
+
+    /* AI CHAT */
+    .ai-mo-inner { display:flex; flex-direction:column; height:min(60dvh,480px); min-height:240px; }
+    .ai-chat-msgs { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:4px 2px 8px; display:flex; flex-direction:column; gap:10px; min-height:0; }
+    .ai-bubble { max-width:87%; padding:11px 14px; border-radius:16px; font-size:14px; line-height:1.6; word-break:break-word; white-space:pre-wrap; }
+    .ai-bubble.assistant { background:#F1F8E9; color:var(--text); border-radius:4px 16px 16px 16px; align-self:flex-start; }
+    .ai-bubble.user { background:var(--g-dark); color:white; border-radius:16px 4px 16px 16px; align-self:flex-end; }
+    .ai-typing { display:flex; gap:5px; align-items:center; padding:13px 14px; background:#F1F8E9; border-radius:4px 16px 16px 16px; align-self:flex-start; }
+    .ai-typing span { width:7px; height:7px; background:#81C784; border-radius:50%; animation:typDot .9s ease-in-out infinite; }
+    .ai-typing span:nth-child(2) { animation-delay:.18s; }
+    .ai-typing span:nth-child(3) { animation-delay:.36s; }
+    @keyframes typDot { 0%,80%,100%{transform:scale(.65);opacity:.5} 40%{transform:scale(1.1);opacity:1} }
+    .ai-input-bar { display:flex; gap:8px; align-items:flex-end; padding:10px 0 0; border-top:1px solid #EEE; flex-shrink:0; margin-top:4px; }
+    .ai-input-ta { flex:1; padding:10px 13px; border:1.5px solid #E0E0E0; border-radius:20px; font-size:15px; font-family:inherit; color:var(--text); background:white; resize:none; min-height:42px; max-height:120px; outline:none; -webkit-appearance:none; overflow:hidden; line-height:1.4; }
+    .ai-input-ta:focus { border-color:var(--g-dark); }
+    .ai-send-btn { width:42px; height:42px; border-radius:50%; background:var(--g-dark); border:none; color:white; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; -webkit-tap-highlight-color:transparent; transition:background .15s; line-height:1; }
+    .ai-send-btn:disabled { background:#BDBDBD; }
   </style>
 </head>
 <body>
@@ -1429,57 +1446,157 @@ async function importAppData(input) {
 }
 
 // =====================================================
-// AI PLANT ANALYSIS
+// AI CHAT
 // =====================================================
+let _chatState = null; // { photoId, history, base64, mediaType }
+
 function analyzePlant(id) {
   document.getElementById('photo-sheet')?.remove();
-  snack('Analyse en cours… 🌿');
+  openAiChatModal(id);
+}
+
+function openAiChatModal(photoId) {
+  document.getElementById('ai-chat-mo')?.remove();
+  const mo = document.createElement('div');
+  mo.className = 'mo'; mo.id = 'ai-chat-mo';
+  mo.onclick = e => { if (e.target === mo) closeAiChat(); };
+  mo.innerHTML = `
+    <div class="mo-box" style="display:flex;flex-direction:column;padding-bottom:calc(16px + var(--safe-b,0px))">
+      <div class="mo-handle" onclick="closeAiChat()"></div>
+      <button class="mo-close-btn" onclick="closeAiChat()">✕</button>
+      <div class="mo-title">🌿 Analyse IA</div>
+      <div class="ai-mo-inner">
+        <div class="ai-chat-msgs" id="ai-chat-msgs"></div>
+        <div class="ai-input-bar">
+          <textarea class="ai-input-ta" id="ai-chat-input" placeholder="Pose une question…" rows="1"
+            oninput="autoGrow(this)"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMsg();}"></textarea>
+          <button class="mic-btn" onclick="voiceIntoChatInput()" title="Dicter">🎤</button>
+          <button class="ai-send-btn" id="ai-send-btn" onclick="sendChatMsg()">↑</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(mo);
+
+  _chatState = { photoId, history: [], base64: null, mediaType: null };
   openMediaDB(db => {
-    if (!db) { snack('Erreur : impossible d\'accéder aux photos'); return; }
-    const req = db.transaction('blobs').objectStore('blobs').get(id);
+    if (!db) { _appendChatBubble('assistant', 'Erreur : impossible d\'accéder aux photos.'); return; }
+    const req = db.transaction('blobs').objectStore('blobs').get(photoId);
     req.onsuccess = e => {
       const blob = e.target.result;
-      if (!blob) { snack('Photo introuvable'); return; }
+      if (!blob) { _appendChatBubble('assistant', 'Photo introuvable.'); return; }
       const reader = new FileReader();
       reader.onload = async () => {
-        const base64 = reader.result.split(',')[1];
-        const mediaType = blob.type || 'image/jpeg';
+        _chatState.base64 = reader.result.split(',')[1];
+        _chatState.mediaType = blob.type || 'image/jpeg';
+        const firstMsg = {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: _chatState.mediaType, data: _chatState.base64 } },
+            { type: 'text', text: 'Analyse cette photo de plante de potager. Identifie la plante si possible, évalue son état de santé, et donne une recommandation concrète si tu détectes un problème.' }
+          ]
+        };
+        _chatState.history.push(firstMsg);
+        _appendChatBubble('user', '📸 Photo envoyée pour analyse');
+        _showTyping();
         try {
-          const r = await fetch('https://potager-app-one.vercel.app/api/analyze-plant', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64, mediaType })
-          });
-          if (!r.ok) throw new Error('API error ' + r.status);
-          const data = await r.json();
-          const p = S.photos.find(x => x.id === id);
-          if (p) { p.aiAnalysis = data.analysis; save(); render(); }
-          showAiResult(data.analysis);
-        } catch(err) {
-          snack('Erreur lors de l\'analyse. Réessaie.');
+          const reply = await _callAiApi(_chatState.history);
+          _hideTyping();
+          _appendChatBubble('assistant', reply);
+          _chatState.history.push({ role: 'assistant', content: reply });
+          const p = S.photos.find(x => x.id === photoId);
+          if (p) { p.aiAnalysis = reply; save(); render(); }
+        } catch (err) {
+          _hideTyping();
+          _appendChatBubble('assistant', '❌ Erreur lors de l\'analyse. Réessaie.');
         }
       };
       reader.readAsDataURL(blob);
     };
-    req.onerror = () => snack('Erreur accès photo');
+    req.onerror = () => _appendChatBubble('assistant', 'Erreur lors de l\'accès à la photo.');
   });
 }
-function showAiResult(text) {
-  document.getElementById('ai-result-mo')?.remove();
-  const mo = document.createElement('div');
-  mo.className = 'mo'; mo.id = 'ai-result-mo';
-  mo.onclick = e => { if(e.target===mo) mo.remove(); };
-  const escaped = text.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  mo.innerHTML = `
-    <div class="mo-box">
-      <div class="mo-handle" onclick="document.getElementById('ai-result-mo').remove()"></div>
-      <div class="mo-title">🌿 Analyse IA</div>
-      <div style="font-size:15px;line-height:1.65;color:var(--text);white-space:pre-wrap">${escaped}</div>
-      <div style="margin-top:22px">
-        <button class="btn btn-p" style="width:100%" onclick="document.getElementById('ai-result-mo').remove()">OK</button>
-      </div>
-    </div>`;
-  document.body.appendChild(mo);
+
+function closeAiChat() {
+  document.getElementById('ai-chat-mo')?.remove();
+  _chatState = null;
+}
+
+function _appendChatBubble(role, text) {
+  const msgs = document.getElementById('ai-chat-msgs');
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.className = 'ai-bubble ' + role;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function _showTyping() {
+  const msgs = document.getElementById('ai-chat-msgs');
+  if (!msgs || document.getElementById('ai-typing')) return;
+  const el = document.createElement('div');
+  el.className = 'ai-typing'; el.id = 'ai-typing';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function _hideTyping() {
+  document.getElementById('ai-typing')?.remove();
+}
+
+async function sendChatMsg() {
+  if (!_chatState) return;
+  const ta = document.getElementById('ai-chat-input');
+  const text = ta?.value.trim();
+  if (!text) return;
+  ta.value = ''; autoGrow(ta);
+  const btn = document.getElementById('ai-send-btn');
+  if (btn) btn.disabled = true;
+  _chatState.history.push({ role: 'user', content: text });
+  _appendChatBubble('user', text);
+  _showTyping();
+  try {
+    const reply = await _callAiApi(_chatState.history);
+    _hideTyping();
+    _appendChatBubble('assistant', reply);
+    _chatState.history.push({ role: 'assistant', content: reply });
+  } catch (err) {
+    _hideTyping();
+    _appendChatBubble('assistant', '❌ Erreur. Réessaie.');
+  } finally {
+    if (btn) btn.disabled = false;
+    ta.focus();
+  }
+}
+
+async function _callAiApi(messages) {
+  const r = await fetch('https://potager-app-one.vercel.app/api/analyze-plant', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages })
+  });
+  if (!r.ok) throw new Error('API error ' + r.status);
+  const data = await r.json();
+  if (data.error) throw new Error(data.error);
+  return data.reply;
+}
+
+function voiceIntoChatInput() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { snack('Micro non disponible sur ce navigateur'); return; }
+  const r = new SR(); r.lang = 'fr-FR'; r.interimResults = false; r.maxAlternatives = 1;
+  r.onresult = e => {
+    const ta = document.getElementById('ai-chat-input');
+    if (ta) {
+      ta.value = (ta.value ? ta.value + ' ' : '') + e.results[0][0].transcript;
+      autoGrow(ta);
+      ta.focus();
+    }
+  };
+  r.onerror = () => snack('Erreur micro');
+  r.start();
 }
 
 // =====================================================
