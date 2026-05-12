@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Migration — Mon Potager</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; background: #EDF5E0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { background: white; border-radius: 20px; padding: 28px 24px; max-width: 420px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,.10); }
+    .icon { font-size: 48px; text-align: center; margin-bottom: 12px; }
+    h1 { color: #2E7D32; font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+    .sub { color: #757575; font-size: 14px; text-align: center; line-height: 1.5; margin-bottom: 24px; }
+    .step { background: #F5F5F5; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+    .step-num { display: inline-block; background: #2E7D32; color: white; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; font-weight: 700; text-align: center; line-height: 22px; margin-right: 8px; }
+    .step-txt { font-size: 14px; color: #333; line-height: 1.4; }
+    button { display: block; width: 100%; padding: 16px; margin: 16px 0 0; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: opacity .15s; -webkit-tap-highlight-color: transparent; }
+    button:active { opacity: .8; }
+    .btn-export { background: linear-gradient(135deg, #388E3C, #2E7D32); color: white; }
+    .btn-import { background: linear-gradient(135deg, #1976D2, #1565C0); color: white; }
+    .msg { margin-top: 16px; padding: 14px; border-radius: 10px; font-size: 14px; line-height: 1.5; display: none; }
+    .ok  { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+    .err { background: #FFEBEE; color: #B71C1C; border: 1px solid #FFCDD2; }
+    .progress { color: #E65100; background: #FFF3E0; border: 1px solid #FFCC80; }
+    a.back { display: block; text-align: center; margin-top: 18px; color: #2E7D32; font-size: 14px; text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">🌿</div>
+  <h1>Transfert de données</h1>
+
+  <!-- EXPORT (affiché sur GitHub Pages) -->
+  <div id="sec-export">
+    <p class="sub">Tu es sur <strong>GitHub Pages</strong> — tes données sont ici. Clique pour les télécharger.</p>
+    <div class="step"><span class="step-num">1</span><span class="step-txt">Clique "Exporter" → un fichier <strong>potager-backup.json</strong> se télécharge</span></div>
+    <div class="step"><span class="step-num">2</span><span class="step-txt">Va sur <strong>potager-app-one.vercel.app/migrate.html</strong> et importe ce fichier</span></div>
+    <button class="btn-export" onclick="exportData()">📦 Exporter mes données</button>
+  </div>
+
+  <!-- IMPORT (affiché sur Vercel) -->
+  <div id="sec-import">
+    <p class="sub">Tu es sur <strong>Vercel</strong>. Sélectionne le fichier <strong>potager-backup.json</strong> téléchargé depuis GitHub Pages.</p>
+    <div class="step"><span class="step-num">1</span><span class="step-txt">Clique "Importer" et sélectionne le fichier <strong>potager-backup.json</strong></span></div>
+    <div class="step"><span class="step-num">2</span><span class="step-txt">L'app se recharge automatiquement avec toutes tes données</span></div>
+    <button class="btn-import" onclick="document.getElementById('file-inp').click()">📥 Importer mes données</button>
+    <input id="file-inp" type="file" accept=".json" style="display:none" onchange="importData(this)">
+  </div>
+
+  <div id="msg" class="msg"></div>
+  <a class="back" href="./">← Retour à l'app</a>
+</div>
+
+<script>
+  const isGH = location.hostname.includes('github.io');
+  document.getElementById('sec-export').style.display = isGH ? '' : 'none';
+  document.getElementById('sec-import').style.display = isGH ? 'none' : '';
+
+  function showMsg(text, type) {
+    const el = document.getElementById('msg');
+    el.innerHTML = text;
+    el.className = 'msg ' + type;
+    el.style.display = 'block';
+  }
+
+  async function exportData() {
+    showMsg('⏳ Export en cours, patiente…', 'progress');
+    try {
+      const out = { ls: localStorage.getItem('potager_v5'), photos: [] };
+      await new Promise((res, rej) => {
+        const r = indexedDB.open('potager_media', 1);
+        r.onerror = () => res(); // pas de photos = pas grave
+        r.onsuccess = e => {
+          const db = e.target.result;
+          try {
+            const store = db.transaction('blobs').objectStore('blobs');
+            const allVals = [], allKeys = [];
+            store.getAllKeys().onsuccess = ev => {
+              allKeys.push(...ev.target.result);
+              store.getAll().onsuccess = ev2 => {
+                allVals.push(...ev2.target.result);
+                Promise.all(allVals.map((blob, i) => new Promise(r2 => {
+                  const fr = new FileReader();
+                  fr.onload = () => r2({ id: allKeys[i], type: blob.type || 'image/jpeg', b64: fr.result.split(',')[1] });
+                  fr.onerror = () => r2(null);
+                  fr.readAsDataURL(blob);
+                }))).then(photos => {
+                  out.photos = photos.filter(Boolean);
+                  res();
+                });
+              };
+            };
+          } catch(e) { res(); }
+        };
+      });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], { type: 'application/json' }));
+      a.download = 'potager-backup.json';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      showMsg('✅ Export réussi ! <strong>' + out.photos.length + ' photo(s)</strong> incluse(s).<br>Maintenant va sur <strong>potager-app-one.vercel.app/migrate.html</strong> pour importer.', 'ok');
+    } catch(e) {
+      showMsg('❌ Erreur : ' + e.message, 'err');
+    }
+  }
+
+  async function importData(input) {
+    if (!input.files[0]) return;
+    showMsg('⏳ Import en cours, patiente…', 'progress');
+    try {
+      const d = JSON.parse(await input.files[0].text());
+      if (d.ls) localStorage.setItem('potager_v5', d.ls);
+      const photos = d.photos || [];
+      if (photos.length > 0) {
+        await new Promise((res, rej) => {
+          const r = indexedDB.open('potager_media', 1);
+          r.onupgradeneeded = ev => ev.target.result.createObjectStore('blobs');
+          r.onerror = rej;
+          r.onsuccess = async ev => {
+            const db = ev.target.result;
+            const tx = db.transaction('blobs', 'readwrite');
+            const st = tx.objectStore('blobs');
+            for (const p of photos) {
+              try {
+                const resp = await fetch('data:' + p.type + ';base64,' + p.b64);
+                const blob = await resp.blob();
+                st.put(blob, p.id);
+              } catch(e) { /* skip corrupted photo */ }
+            }
+            tx.oncomplete = res;
+            tx.onerror = rej;
+          };
+        });
+      }
+      showMsg('✅ Import réussi ! <strong>' + photos.length + ' photo(s)</strong> restaurée(s).<br>Redirection vers l\'app dans 3 secondes…', 'ok');
+      setTimeout(() => { location.href = './'; }, 3000);
+    } catch(e) {
+      showMsg('❌ Erreur lors de l\'import : ' + e.message, 'err');
+    }
+  }
+</script>
+</body>
+</html>
