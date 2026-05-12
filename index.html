@@ -362,6 +362,7 @@ function save() {
   }));
 }
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function autoGrow(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
 
 // =====================================================
 // INDEXEDDB (photos)
@@ -1576,7 +1577,7 @@ function sessionForm(s) {
     <div class="fg"><label class="flabel">Constats / Observations</label>
       ${bulletToolbar('f-constats')}
       <div style="display:flex;gap:8px">
-        <textarea id="f-constats" class="fi fta" style="flex:1" placeholder="Ce que j'observe…">${esc(constats)}</textarea>
+        <textarea id="f-constats" class="fi fta" style="flex:1;min-height:130px" placeholder="Ce que j'observe…" oninput="autoGrow(this)">${esc(constats)}</textarea>
         <button class="mic-btn" style="align-self:flex-start;margin-top:0" onclick="voiceModal('f-constats')">🎤</button>
       </div>
     </div>
@@ -1601,7 +1602,7 @@ function actionField(a) {
       <span style="font-size:12px;font-weight:700;color:var(--tl)">Action ${_acIdx}</span>
       <button onclick="document.getElementById('${id}').remove()" style="border:none;background:none;font-size:18px;color:#999;cursor:pointer">✕</button>
     </div>
-    <input type="hidden" id="${tid}" value="${esc(a?a.texte:'')}">
+    <input type="hidden" id="${tid}" class="act-txt" value="${esc(a?a.texte:'')}">
     <div style="display:flex;gap:8px;margin-bottom:8px">
       <button class="fi act-txt-btn" id="btn-${tid}" onclick="openActionEditModal('${tid}')">${a&&a.texte ? esc(a.texte) : '<span style="color:#BDBDBD">Décris l\'action…</span>'}</button>
       <button class="mic-btn" onclick="openActionEditModal('${tid}',true)">🎤</button>
@@ -1616,6 +1617,8 @@ function actionField(a) {
 }
 function openNewSession() { sessionForm(null); }
 function editSession(id)  { const s = S.sessions.find(x=>x.id===id); if(s) sessionForm(s); }
+// Auto-grow initial pour les textareas pré-remplies à l'ouverture d'un formulaire
+function initAutoGrow() { setTimeout(() => document.querySelectorAll('.fta').forEach(autoGrow), 50); }
 function addAct() { document.getElementById('f-actions').insertAdjacentHTML('beforeend', actionField(null)); }
 function selM(b) { document.querySelectorAll('.mbt').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }
 function selR(b) {
@@ -1728,7 +1731,7 @@ function cultureFormFields(c) {
     <div class="fg"><label class="flabel">Notes</label>
       ${bulletToolbar('c-note')}
       <div style="display:flex;gap:8px">
-        <textarea id="c-note" class="fi fta" style="flex:1" placeholder="Observations…">${esc(c?c.note:'')}</textarea>
+        <textarea id="c-note" class="fi fta" style="flex:1;min-height:100px" placeholder="Observations…" oninput="autoGrow(this)">${esc(c?c.note:'')}</textarea>
         <button class="mic-btn" style="align-self:flex-start" onclick="voiceModal('c-note')">🎤</button>
       </div>
     </div>`;
@@ -1824,7 +1827,7 @@ function modal(html) {
   ov.onclick = e => { if (e.target===ov) closeModal(); };
   const box = document.createElement('div'); box.className='mo-box'; box.innerHTML=html;
   ov.appendChild(box); document.body.appendChild(ov);
-  setTimeout(() => { const fi=box.querySelector('input:not([type=date]),textarea'); if(fi) fi.focus(); }, 300);
+  setTimeout(() => { const fi=box.querySelector('input:not([type=date],[type=hidden]),textarea'); if(fi) fi.focus(); box.querySelectorAll('textarea.fta').forEach(autoGrow); }, 300);
 }
 function closeModal() { document.getElementById('mo')?.remove(); }
 
