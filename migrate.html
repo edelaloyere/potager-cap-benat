@@ -121,25 +121,27 @@
     if (d.ls) localStorage.setItem('potager_v5', d.ls);
       const photos = d.photos || [];
       if (photos.length > 0) {
-        await new Promise((res, rej) => {
+        const db = await new Promise((res, rej) => {
           const r = indexedDB.open('potager_media', 1);
           r.onupgradeneeded = ev => ev.target.result.createObjectStore('blobs');
           r.onerror = rej;
-          r.onsuccess = async ev => {
-            const db = ev.target.result;
-            const tx = db.transaction('blobs', 'readwrite');
-            const st = tx.objectStore('blobs');
-            for (const p of photos) {
-              try {
-                const resp = await fetch('data:' + p.type + ';base64,' + p.b64);
-                const blob = await resp.blob();
-                st.put(blob, p.id);
-              } catch(e) { /* skip corrupted photo */ }
-            }
-            tx.oncomplete = res;
-            tx.onerror = rej;
-          };
+          r.onsuccess = ev => res(ev.target.result);
         });
+        // Une transaction par photo pour éviter le timeout Safari
+        for (const p of photos) {
+          try {
+            const bytes = atob(p.b64);
+            const arr = new Uint8Array(bytes.length);
+            for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+            const blob = new Blob([arr], { type: p.type || 'image/jpeg' });
+            await new Promise((res, rej) => {
+              const tx = db.transaction('blobs', 'readwrite');
+              tx.objectStore('blobs').put(blob, p.id);
+              tx.oncomplete = res;
+              tx.onerror = rej;
+            });
+          } catch(e) { /* skip corrupted photo */ }
+        }
       }
       showMsg('✅ Import réussi ! <strong>' + photos.length + ' photo(s)</strong> restaurée(s).<br>Redirection vers l\'app dans 3 secondes…', 'ok');
       setTimeout(() => { location.href = './'; }, 3000);
