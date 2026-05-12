@@ -183,6 +183,7 @@
     .mt-edit-ico { width:34px; padding:6px 2px; border:1.5px solid #E0E0E0; border-radius:8px; font-size:15px; text-align:center; background:white; -webkit-appearance:none; flex-shrink:0; cursor:pointer; }
     .mt-edit-txt { flex:1; min-width:0; padding:8px 9px; border:1.5px solid #E0E0E0; border-radius:8px; font-size:14px; font-family:inherit; background:white; -webkit-appearance:none; }
     .mt-edit-txt-btn { flex:1; min-width:0; padding:8px 9px; border:1.5px solid #E0E0E0; border-radius:8px; font-size:14px; font-family:inherit; background:white; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; color:var(--text); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .act-txt-btn { flex:1; min-width:0; padding:12px 13px; border:1.5px solid #E0E0E0; border-radius:10px; font-size:16px; font-family:inherit; background:white; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; color:var(--text); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
     .del-icon-btn { background:none; border:none; color:#EF5350; cursor:pointer; padding:5px; font-size:15px; flex-shrink:0; -webkit-tap-highlight-color:transparent; }
     .add-plan-task { width:100%; margin-top:8px; padding:10px; border:2px dashed #BDBDBD; border-radius:8px; background:transparent; color:var(--tl); font-size:13px; cursor:pointer; text-align:center; -webkit-tap-highlight-color:transparent; }
     .add-plan-block { width:100%; padding:13px; border:2px dashed var(--g-dark); border-radius:12px; background:transparent; color:var(--g-dark); font-size:15px; font-weight:600; cursor:pointer; text-align:center; margin-bottom:12px; -webkit-tap-highlight-color:transparent; }
@@ -783,6 +784,50 @@ function delPTask(bi,ti) {
   const t = S.planning[bi].tasks[ti];
   if (t.todoId) S.todos = S.todos.filter(x=>x.id!==t.todoId);
   S.planning[bi].tasks.splice(ti,1); save(); render();
+}
+function openActionEditModal(inputId, withVoice) {
+  document.getElementById('action-edit-mo')?.remove();
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  const mo = document.createElement('div');
+  mo.className = 'mo'; mo.id = 'action-edit-mo';
+  mo.onclick = e => { if(e.target===mo) mo.remove(); };
+  mo.innerHTML = `<div class="mo-box">
+    <div class="mo-handle" onclick="document.getElementById('action-edit-mo').remove()"></div>
+    <div class="mo-title" style="font-size:17px">✏️ Décrire l'action</div>
+    <textarea id="action-edit-ta" class="fi fta" style="min-height:100px;font-size:16px;line-height:1.5" placeholder="Décris l'action…">${esc(inp.value)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-o btn-sm" style="flex:0 0 auto" onclick="voiceIntoActionEdit()">🎤</button>
+      <button class="btn btn-p" style="flex:1" onclick="confirmActionEdit('${inputId}')">✓ OK</button>
+      <button class="btn btn-o btn-sm" style="flex:0 0 auto" onclick="document.getElementById('action-edit-mo').remove()">Annuler</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);
+  setTimeout(() => {
+    const ta = document.getElementById('action-edit-ta');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    if (withVoice) voiceIntoActionEdit();
+  }, 80);
+}
+function confirmActionEdit(inputId) {
+  const ta = document.getElementById('action-edit-ta');
+  const inp = document.getElementById(inputId);
+  if (!ta || !inp) return;
+  inp.value = ta.value;
+  const btn = document.getElementById('btn-' + inputId);
+  if (btn) btn.innerHTML = ta.value ? esc(ta.value) : '<span style="color:#BDBDBD">Décris l\'action…</span>';
+  document.getElementById('action-edit-mo')?.remove();
+}
+function voiceIntoActionEdit() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { snack('Micro non disponible sur ce navigateur'); return; }
+  const r = new SR(); r.lang = 'fr-FR'; r.interimResults = false; r.maxAlternatives = 1;
+  r.onresult = e => {
+    const ta = document.getElementById('action-edit-ta');
+    if (ta) ta.value += (ta.value ? ' ' : '') + e.results[0][0].transcript;
+  };
+  r.onerror = () => snack('Erreur micro');
+  r.start(); snack('🎤 Écoute…');
 }
 function openLabelEditModal(bi) {
   document.getElementById('label-edit-mo')?.remove();
@@ -1556,9 +1601,10 @@ function actionField(a) {
       <span style="font-size:12px;font-weight:700;color:var(--tl)">Action ${_acIdx}</span>
       <button onclick="document.getElementById('${id}').remove()" style="border:none;background:none;font-size:18px;color:#999;cursor:pointer">✕</button>
     </div>
+    <input type="hidden" id="${tid}" value="${esc(a?a.texte:'')}">
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <input type="text" id="${tid}" class="fi act-txt" style="flex:1" placeholder="Décris l'action…" value="${esc(a?a.texte:'')}">
-      <button class="mic-btn" onclick="voiceModal('${tid}')">🎤</button>
+      <button class="fi act-txt-btn" id="btn-${tid}" onclick="openActionEditModal('${tid}')">${a&&a.texte ? esc(a.texte) : '<span style="color:#BDBDBD">Décris l\'action…</span>'}</button>
+      <button class="mic-btn" onclick="openActionEditModal('${tid}',true)">🎤</button>
     </div>
     <div class="rbts">
       <button class="rbt ${a&&a.resultat==='succes'?'rs':''}" data-v="succes" onclick="selR(this)">✓ Succès</button>
