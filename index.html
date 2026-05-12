@@ -260,7 +260,10 @@
       <p id="hdr-sub">Cap Bénat — Bormes-les-Mimosas</p>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-      <div class="hdr-right" id="hdr-right"></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div class="hdr-right" id="hdr-right"></div>
+        <button class="hdr-btn" onclick="showSettings()" title="Paramètres">⚙️</button>
+      </div>
       <div class="hdr-weather" id="hdr-weather"></div>
     </div>
   </div>
@@ -1103,6 +1106,105 @@ function deletePhotoById(id) {
   if (!confirm('Supprimer ce média ?')) return;
   S.photos = S.photos.filter(p => p.id !== id);
   deleteBlob(id, () => { save(); render(); snack('Supprimé ✓'); });
+}
+
+// =====================================================
+// SETTINGS — EXPORT / IMPORT
+// =====================================================
+function showSettings() {
+  const mo = document.createElement('div');
+  mo.className = 'mo'; mo.id = 'settings-mo';
+  mo.onclick = e => { if(e.target===mo) mo.remove(); };
+  mo.innerHTML = `
+    <div class="mo-box">
+      <div class="mo-handle" onclick="document.getElementById('settings-mo').remove()"></div>
+      <div class="mo-title">⚙️ Paramètres</div>
+      <div class="stitle">Sauvegarde & transfert</div>
+      <button class="btn btn-p" style="width:100%;margin-bottom:10px" onclick="exportAppData()">📦 Exporter mes données</button>
+      <button class="btn btn-o" style="width:100%;margin-bottom:10px" onclick="document.getElementById('import-file-input').click()">📥 Importer une sauvegarde</button>
+      <input id="import-file-input" type="file" accept=".json" style="display:none" onchange="importAppData(this)">
+      <p style="font-size:12px;color:var(--tl);line-height:1.5;margin-top:4px">Pour transférer tes données vers une autre URL, exporte depuis cette app, puis importe sur la nouvelle URL.</p>
+      <div id="settings-msg" style="margin-top:12px;font-size:13px;display:none"></div>
+    </div>`;
+  document.body.appendChild(mo);
+}
+async function exportAppData() {
+  const msgEl = document.getElementById('settings-msg');
+  if(msgEl) { msgEl.style.display='block'; msgEl.style.color='#E65100'; msgEl.textContent='⏳ Export en cours…'; }
+  try {
+    const lsRaw = localStorage.getItem('potager_v5') || localStorage.getItem('potager_v4') || localStorage.getItem('potager_v3');
+    const out = { ls: lsRaw, photos: [] };
+    await new Promise((res) => {
+      const r = indexedDB.open('potager_media', 1);
+      r.onerror = () => res();
+      r.onsuccess = e => {
+        const db = e.target.result;
+        try {
+          const store = db.transaction('blobs').objectStore('blobs');
+          const allKeys = [], allVals = [];
+          store.getAllKeys().onsuccess = ev => {
+            allKeys.push(...ev.target.result);
+            store.getAll().onsuccess = ev2 => {
+              allVals.push(...ev2.target.result);
+              Promise.all(allVals.map((blob, i) => new Promise(r2 => {
+                const fr = new FileReader();
+                fr.onload = () => r2({ id: allKeys[i], type: blob.type || 'image/jpeg', b64: fr.result.split(',')[1] });
+                fr.onerror = () => r2(null);
+                fr.readAsDataURL(blob);
+              }))).then(photos => { out.photos = photos.filter(Boolean); res(); });
+            };
+          };
+        } catch(e) { res(); }
+      };
+    });
+    if (!out.ls) {
+      if(msgEl) { msgEl.style.color='#C62828'; msgEl.textContent='❌ Aucune donnée trouvée.'; }
+      return;
+    }
+    const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'potager-backup.json'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    if(msgEl) { msgEl.style.color='#2E7D32'; msgEl.textContent='✅ Export réussi — ' + out.photos.length + ' photo(s) incluse(s).'; }
+  } catch(e) {
+    if(msgEl) { msgEl.style.color='#C62828'; msgEl.textContent='❌ Erreur : ' + e.message; }
+  }
+}
+async function importAppData(input) {
+  if (!input.files[0]) return;
+  const msgEl = document.getElementById('settings-msg');
+  if(msgEl) { msgEl.style.display='block'; msgEl.style.color='#E65100'; msgEl.textContent='⏳ Import en cours…'; }
+  try {
+    const d = JSON.parse(await input.files[0].text());
+    if (d.ls) localStorage.setItem('potager_v5', d.ls);
+    const photos = d.photos || [];
+    if (photos.length > 0) {
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open('potager_media', 1);
+        r.onupgradeneeded = ev => ev.target.result.createObjectStore('blobs');
+        r.onerror = rej;
+        r.onsuccess = ev => res(ev.target.result);
+      });
+      for (const p of photos) {
+        try {
+          const bytes = atob(p.b64);
+          const arr = new Uint8Array(bytes.length);
+          for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+          const blob = new Blob([arr], { type: p.type || 'image/jpeg' });
+          await new Promise((res, rej) => {
+            const tx = db.transaction('blobs', 'readwrite');
+            tx.objectStore('blobs').put(blob, p.id);
+            tx.oncomplete = res; tx.onerror = rej;
+          });
+        } catch(e) {}
+      }
+    }
+    if(msgEl) { msgEl.style.color='#2E7D32'; msgEl.textContent='✅ Import réussi — ' + photos.length + ' photo(s). Rechargement…'; }
+    setTimeout(() => { document.getElementById('settings-mo')?.remove(); load(); render(); }, 1500);
+  } catch(e) {
+    if(msgEl) { msgEl.style.color='#C62828'; msgEl.textContent='❌ Erreur : ' + e.message; }
+  }
 }
 
 // =====================================================
