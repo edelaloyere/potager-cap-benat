@@ -959,19 +959,30 @@ function renderTodos() {
   const done = S.todos.filter(t => t.fait);
   let html = '';
   const planLabels = S.planning.map(b => b.label);
-  S.planning.forEach((block, bi) => {
+  S.planning.forEach((block) => {
     const label = block.label;
     const items = rem.filter(t => t.saison === label);
     if (!items.length) return;
-    const taskOrder = block.tasks.map(t => t.id);
-    items.sort((a, b) => {
-      const ia = taskOrder.indexOf(a.planTaskId);
-      const ib = taskOrder.indexOf(b.planTaskId);
-      if (ia === -1 && ib === -1) return 0;
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    });
+    const taskPosMap = new Map(block.tasks.map((t, i) => [t.id, i]));
+    const N = block.tasks.length;
+    // Position d'un todo : index dans block.tasks pour les todos planning,
+    // position fractionnaire entre les tâches voisines dans S.todos pour les manuels
+    function pos(todo) {
+      if (todo.planTaskId && taskPosMap.has(todo.planTaskId)) {
+        return taskPosMap.get(todo.planTaskId);
+      }
+      const myIdx = S.todos.indexOf(todo);
+      let prev = -1, next = N;
+      for (const t of items) {
+        if (!t.planTaskId) continue;
+        const tIdx = S.todos.indexOf(t);
+        const tPos = taskPosMap.get(t.planTaskId) ?? N;
+        if (tIdx < myIdx) prev = Math.max(prev, tPos);
+        else              next = Math.min(next, tPos);
+      }
+      return (prev + next) / 2;
+    }
+    items.sort((a, b) => pos(a) - pos(b));
     html += `<div class="stitle">📅 ${esc(label)}</div><div class="card" style="padding:0 14px">${items.map(renderTI).join('')}</div>`;
   });
   const other = rem.filter(t => !planLabels.includes(t.saison));
