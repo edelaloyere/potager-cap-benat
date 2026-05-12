@@ -80,6 +80,15 @@
     /* MOVE BUTTONS */
     .move-blk { background:rgba(255,255,255,.18); border:none; color:white; border-radius:6px; padding:4px 7px; font-size:13px; cursor:pointer; -webkit-tap-highlight-color:transparent; line-height:1; }
     .move-tsk { background:none; border:none; color:#BDBDBD; padding:3px 5px; font-size:13px; cursor:pointer; -webkit-tap-highlight-color:transparent; flex-shrink:0; }
+    .insert-task-btn { display:flex; align-items:center; justify-content:center; gap:4px; width:100%; padding:2px 0; background:none; border:none; cursor:pointer; color:#BDBDBD; font-size:12px; font-weight:600; -webkit-tap-highlight-color:transparent; transition:color .15s; }
+    .insert-task-btn:active, .insert-task-btn:hover { color:var(--g-dark); }
+    .move-pos-btn { display:flex; align-items:center; gap:10px; width:100%; padding:13px 8px; border:none; background:none; border-bottom:1px solid #F0F0F0; cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent; border-radius:8px; }
+    .move-pos-btn.current { background:#E8F5E9; }
+    .move-pos-btn:last-child { border-bottom:none; }
+    .move-pos-num { font-size:11px; font-weight:700; color:#BDBDBD; min-width:20px; }
+    .move-pos-ico { font-size:17px; }
+    .move-pos-txt { flex:1; font-size:14px; color:var(--text); text-align:left; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .move-pos-cur { font-size:11px; color:var(--g-dark); font-weight:700; flex-shrink:0; }
 
     /* MODAL */
     .mo { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; display:flex; align-items:flex-end; }
@@ -728,17 +737,18 @@ function renderPlanning() {
         </div>
         <div class="mc-body">
           ${b.tasks.map((t,ti)=>{
-            const tid='pt-'+bi+'-'+ti, canU=ti>0, canD=ti<b.tasks.length-1;
+            const tid='pt-'+bi+'-'+ti;
+            const canMove = b.tasks.length > 1;
             return `<div class="mt-edit" id="mte-${bi}-${ti}">
               <input class="mt-edit-ico" value="${esc(t.ico)}" onclick="showEmojiPicker(${bi},${ti},this)" readonly maxlength="4">
               <input class="mt-edit-txt" id="${tid}" value="${esc(t.texte)}" oninput="updPTask(${bi},${ti},this.value)">
               <button class="mic-btn" onclick="voiceModal('${tid}')">🎤</button>
-              ${canU?`<button class="move-tsk" onclick="movePTask(${bi},${ti},-1)">↑</button>`:'<span style="width:18px"></span>'}
-              ${canD?`<button class="move-tsk" onclick="movePTask(${bi},${ti},1)">↓</button>`:'<span style="width:18px"></span>'}
+              ${canMove?`<button class="move-tsk" title="Déplacer" onclick="showMovePicker(${bi},${ti})">⇅</button>`:''}
               <button class="del-icon-btn" onclick="delPTask(${bi},${ti})">✕</button>
-            </div>`;
+            </div>
+            <button class="insert-task-btn" onclick="addPTaskAt(${bi},${ti+1})">＋</button>`;
           }).join('')}
-          <button class="add-plan-task" onclick="addPTask(${bi})">+ Ajouter une tâche</button>
+          <button class="add-plan-task" style="margin-top:4px" onclick="addPTask(${bi})">+ Ajouter en bas</button>
         </div>
       </div>`;
     } else {
@@ -772,6 +782,14 @@ function delPTask(bi,ti) {
   if (t.todoId) S.todos = S.todos.filter(x=>x.id!==t.todoId);
   S.planning[bi].tasks.splice(ti,1); save(); render();
 }
+function addPTaskAt(bi, atIndex) {
+  const task = { id:uid(), ico:'📌', texte:'Nouvelle tâche' };
+  S.planning[bi].tasks.splice(atIndex, 0, task);
+  const todo = { id:uid(), texte:task.texte, saison:saisonForBlock(S.planning[bi]), priorite:'normale', fait:false, fromPlanning:true, planTaskId:task.id };
+  task.todoId = todo.id; S.todos.push(todo);
+  save(); render();
+  setTimeout(() => { const el = document.getElementById(`pt-${bi}-${atIndex}`); if(el){el.focus();el.select();} }, 80);
+}
 function addPTask(bi) {
   const task = { id:uid(), ico:'📌', texte:'Nouvelle tâche' };
   S.planning[bi].tasks.push(task);
@@ -798,6 +816,36 @@ function movePBlock(bi,dir) {
 function movePBlockBottom(bi) {
   const block = S.planning.splice(bi,1)[0];
   S.planning.push(block); save(); render();
+}
+function showMovePicker(bi, ti) {
+  document.getElementById('move-picker-mo')?.remove();
+  const block = S.planning[bi];
+  const mo = document.createElement('div');
+  mo.className = 'mo'; mo.id = 'move-picker-mo';
+  mo.onclick = e => { if(e.target===mo) mo.remove(); };
+  const items = block.tasks.map((t, i) => {
+    const cur = i === ti;
+    return `<button class="move-pos-btn${cur?' current':''}" onclick="${cur?'':(`movePTaskTo(${bi},${ti},${i});`)}document.getElementById('move-picker-mo').remove()">
+      <span class="move-pos-num">${i+1}</span>
+      <span class="move-pos-ico">${esc(t.ico)}</span>
+      <span class="move-pos-txt">${esc(t.texte.substring(0,45))}</span>
+      ${cur?'<span class="move-pos-cur">← position actuelle</span>':''}
+    </button>`;
+  }).join('');
+  mo.innerHTML = `<div class="mo-box">
+    <div class="mo-handle" onclick="document.getElementById('move-picker-mo').remove()"></div>
+    <div class="mo-title" style="font-size:17px">📍 Déplacer vers…</div>
+    <p style="font-size:13px;color:var(--tl);margin:-10px 0 14px">Tape la position de destination</p>
+    ${items}
+  </div>`;
+  document.body.appendChild(mo);
+}
+function movePTaskTo(bi, from, to) {
+  if (from === to) return;
+  const tasks = S.planning[bi].tasks;
+  const [task] = tasks.splice(from, 1);
+  tasks.splice(to, 0, task);
+  save(); render();
 }
 function movePTask(bi,ti,dir) {
   const tasks=S.planning[bi].tasks, ni=ti+dir;
