@@ -194,6 +194,9 @@
     .photo-action-btn.danger { color:#C62828; }
     .photo-action-btn.pcancel { text-align:center; color:var(--tl); font-weight:600; background:#F5F5F5; border-radius:12px; margin-top:10px; }
 
+    /* AI ANALYSIS BADGE */
+    .ai-badge { position:absolute; top:6px; right:6px; background:rgba(46,125,50,.85); color:white; border-radius:20px; font-size:10px; font-weight:700; padding:3px 7px; letter-spacing:.2px; backdrop-filter:blur(4px); }
+
     /* BULLET TOOLBAR */
     .btoolbar { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
     .bt-btn { padding:5px 11px; border-radius:8px; border:1.5px solid #E0E0E0; background:white; font-size:12px; cursor:pointer; -webkit-tap-highlight-color:transparent; white-space:nowrap; color:var(--text); -webkit-tap-highlight-color:transparent; }
@@ -1011,6 +1014,7 @@ function renderPhotos() {
           ? `<video id="pimg-${p.id}" style="width:100%;height:100%;object-fit:cover" playsinline muted></video>`
           : `<img id="pimg-${p.id}" data-loaded="0" class="photo-thumb" alt="">`}
         <div class="photo-date-badge">${fmtDateShort(p.date)}</div>
+        ${p.aiAnalysis ? `<div class="ai-badge">🌿 IA</div>` : ''}
       </div>`;
     });
     html += '</div>';
@@ -1054,6 +1058,7 @@ function photoTap(id) {
       <div style="font-size:13px;color:var(--tl);text-align:center;margin-bottom:4px">${fmtDateShort(p.date)}</div>
       <button class="photo-action-btn" onclick="document.getElementById('photo-sheet').remove();viewPhotoFull('${id}')">🔍 Voir en grand</button>
       ${!isVideo?`<button class="photo-action-btn" onclick="document.getElementById('photo-sheet').remove();sharePhoto('${id}')">📤 Partager</button>`:''}
+      ${!isVideo?`<button class="photo-action-btn" onclick="analyzePlant('${id}')">🌿 Analyser la plante (IA)</button>`:''}
       <button class="photo-action-btn danger" onclick="document.getElementById('photo-sheet').remove();deletePhotoById('${id}')">🗑 Supprimer</button>
       <button class="photo-action-btn pcancel" onclick="document.getElementById('photo-sheet').remove()">Annuler</button>
     </div>`;
@@ -1098,6 +1103,60 @@ function deletePhotoById(id) {
   if (!confirm('Supprimer ce média ?')) return;
   S.photos = S.photos.filter(p => p.id !== id);
   deleteBlob(id, () => { save(); render(); snack('Supprimé ✓'); });
+}
+
+// =====================================================
+// AI PLANT ANALYSIS
+// =====================================================
+function analyzePlant(id) {
+  document.getElementById('photo-sheet')?.remove();
+  snack('Analyse en cours… 🌿');
+  openMediaDB(db => {
+    if (!db) { snack('Erreur : impossible d\'accéder aux photos'); return; }
+    const req = db.transaction('blobs').objectStore('blobs').get(id);
+    req.onsuccess = e => {
+      const blob = e.target.result;
+      if (!blob) { snack('Photo introuvable'); return; }
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result.split(',')[1];
+        const mediaType = blob.type || 'image/jpeg';
+        try {
+          const r = await fetch('https://potager-app-one.vercel.app/api/analyze-plant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64, mediaType })
+          });
+          if (!r.ok) throw new Error('API error ' + r.status);
+          const data = await r.json();
+          const p = S.photos.find(x => x.id === id);
+          if (p) { p.aiAnalysis = data.analysis; save(); render(); }
+          showAiResult(data.analysis);
+        } catch(err) {
+          snack('Erreur lors de l\'analyse. Réessaie.');
+        }
+      };
+      reader.readAsDataURL(blob);
+    };
+    req.onerror = () => snack('Erreur accès photo');
+  });
+}
+function showAiResult(text) {
+  document.getElementById('ai-result-mo')?.remove();
+  const mo = document.createElement('div');
+  mo.className = 'mo'; mo.id = 'ai-result-mo';
+  mo.onclick = e => { if(e.target===mo) mo.remove(); };
+  const escaped = text.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  mo.innerHTML = `
+    <div class="mo-box">
+      <div class="mo-handle" onclick="document.getElementById('ai-result-mo').remove()"></div>
+      <div class="mo-title">🌿 Analyse IA</div>
+      <div style="font-size:15px;line-height:1.65;color:var(--text);white-space:pre-wrap">${escaped}</div>
+      <div style="margin-top:22px">
+        <button class="btn btn-p" style="width:100%" onclick="document.getElementById('ai-result-mo').remove()">OK</button>
+      </div>
+    </div>`;
+  document.body.appendChild(mo);
 }
 
 // =====================================================
