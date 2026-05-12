@@ -181,6 +181,7 @@
     .mt-edit:last-child { border-bottom:none; }
     .mt-edit-ico { width:34px; padding:6px 2px; border:1.5px solid #E0E0E0; border-radius:8px; font-size:15px; text-align:center; background:white; -webkit-appearance:none; flex-shrink:0; cursor:pointer; }
     .mt-edit-txt { flex:1; min-width:0; padding:8px 9px; border:1.5px solid #E0E0E0; border-radius:8px; font-size:14px; font-family:inherit; background:white; -webkit-appearance:none; }
+    .mt-edit-txt-btn { flex:1; min-width:0; padding:8px 9px; border:1.5px solid #E0E0E0; border-radius:8px; font-size:14px; font-family:inherit; background:white; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; color:var(--text); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
     .del-icon-btn { background:none; border:none; color:#EF5350; cursor:pointer; padding:5px; font-size:15px; flex-shrink:0; -webkit-tap-highlight-color:transparent; }
     .add-plan-task { width:100%; margin-top:8px; padding:10px; border:2px dashed #BDBDBD; border-radius:8px; background:transparent; color:var(--tl); font-size:13px; cursor:pointer; text-align:center; -webkit-tap-highlight-color:transparent; }
     .add-plan-block { width:100%; padding:13px; border:2px dashed var(--g-dark); border-radius:12px; background:transparent; color:var(--g-dark); font-size:15px; font-weight:600; cursor:pointer; text-align:center; margin-bottom:12px; -webkit-tap-highlight-color:transparent; }
@@ -741,8 +742,8 @@ function renderPlanning() {
             const canMove = b.tasks.length > 1;
             return `<div class="mt-edit" id="mte-${bi}-${ti}">
               <input class="mt-edit-ico" value="${esc(t.ico)}" onclick="showEmojiPicker(${bi},${ti},this)" readonly maxlength="4">
-              <input class="mt-edit-txt" id="${tid}" value="${esc(t.texte)}" oninput="updPTask(${bi},${ti},this.value)">
-              <button class="mic-btn" onclick="voiceModal('${tid}')">🎤</button>
+              <button class="mt-edit-txt-btn" onclick="openTaskEditModal(${bi},${ti})">${esc(t.texte)||'<span style="color:#BDBDBD">Nouvelle tâche</span>'}</button>
+              <button class="mic-btn" onclick="openTaskEditModal(${bi},${ti},true)">🎤</button>
               ${canMove?`<button class="move-tsk" title="Déplacer" onclick="showMovePicker(${bi},${ti})">⇅</button>`:''}
               <button class="del-icon-btn" onclick="delPTask(${bi},${ti})">✕</button>
             </div>
@@ -781,6 +782,47 @@ function delPTask(bi,ti) {
   const t = S.planning[bi].tasks[ti];
   if (t.todoId) S.todos = S.todos.filter(x=>x.id!==t.todoId);
   S.planning[bi].tasks.splice(ti,1); save(); render();
+}
+function openTaskEditModal(bi, ti, withVoice) {
+  document.getElementById('task-edit-mo')?.remove();
+  const task = S.planning[bi].tasks[ti];
+  const mo = document.createElement('div');
+  mo.className = 'mo'; mo.id = 'task-edit-mo';
+  mo.onclick = e => { if(e.target===mo) mo.remove(); };
+  mo.innerHTML = `<div class="mo-box">
+    <div class="mo-handle" onclick="document.getElementById('task-edit-mo').remove()"></div>
+    <div class="mo-title" style="font-size:17px">✏️ Modifier la tâche</div>
+    <textarea id="task-edit-ta" class="fi fta" style="min-height:100px;font-size:16px;line-height:1.5" placeholder="Texte de la tâche…">${esc(task.texte)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-o btn-sm" style="flex:0 0 auto" onclick="voiceIntoTaskEdit()">🎤</button>
+      <button class="btn btn-p" style="flex:1" onclick="confirmTaskEdit(${bi},${ti})">✓ OK</button>
+      <button class="btn btn-o btn-sm" style="flex:0 0 auto" onclick="document.getElementById('task-edit-mo').remove()">Annuler</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);
+  setTimeout(() => {
+    const ta = document.getElementById('task-edit-ta');
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    if (withVoice) voiceIntoTaskEdit();
+  }, 80);
+}
+function confirmTaskEdit(bi, ti) {
+  const ta = document.getElementById('task-edit-ta');
+  if (!ta) return;
+  updPTask(bi, ti, ta.value);
+  save(); render();
+  document.getElementById('task-edit-mo')?.remove();
+}
+function voiceIntoTaskEdit() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { snack('Micro non disponible sur ce navigateur'); return; }
+  const r = new SR(); r.lang = 'fr-FR'; r.interimResults = false; r.maxAlternatives = 1;
+  r.onresult = e => {
+    const ta = document.getElementById('task-edit-ta');
+    if (ta) ta.value += (ta.value ? ' ' : '') + e.results[0][0].transcript;
+  };
+  r.onerror = () => snack('Erreur micro');
+  r.start(); snack('🎤 Écoute…');
 }
 function addPTaskAt(bi, atIndex) {
   const task = { id:uid(), ico:'📌', texte:'Nouvelle tâche' };
