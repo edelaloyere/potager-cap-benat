@@ -297,20 +297,26 @@
 const S = { tab:'journal', sessions:[], todos:[], cultures:[], planning:[], photos:[], cFilter:'Tous', planEdit:false };
 const ZONES = ['Restanque','Zone vignes','Devant maison','Près cuisine'];
 const GARDEN_EMOJIS = [
-  // Plantes & herbes
-  '🌱','🌿','🍀','🎋','🎍','🌾','🪴','🌵','🪸',
-  // Arbres
-  '🌲','🌳','🌴','🫧',
-  // Fleurs
-  '🌸','🌹','🌺','🌻','🌼','💐','🌷','🪷',
-  // Fruits
-  '🍅','🍓','🍇','🍊','🍋','🍎','🍐','🍑','🍒','🫐','🍈','🥭','🍍','🍌','🍉','🫒',
-  // Légumes
-  '🥕','🫑','🥒','🥬','🥦','🌽','🍆','🥑','🧅','🧄','🥔','🍠','🫘','🥜','🌶️','🍄','🫚',
+  // Plantes & herbes aromatiques (basilic, thym, romarin, coriandre, persil, ciboulette, verveine…)
+  '🌱','🌿','🍀','🎋','🎍','🌾','🪴','🌵','🫚',
+  // Arbres fruitiers (kiwis, vigne…)
+  '🌲','🌳','🌴','🥝','🍇',
+  // Fleurs (œillets d'inde, cosmos, tagètes, lavande…)
+  '🌸','🌹','🌺','🌻','🌼','💐','🌷','🪷','🪻',
+  // Fruits (tomates cerises, citrons, oranges, kiwis…)
+  '🍅','🍓','🍊','🍋','🍎','🍐','🍑','🍒','🫐','🍈','🥭','🍍','🍌','🍉','🫒','🥝',
+  // Légumes — solanacées & cucurbitacées
+  '🍆','🫑','🥒','🎃','🌽','🥑','🌶️',
+  // Légumes — feuilles & choux (poireaux, épinards, choux-fleurs, brocolis, kale, chou cabus, chinois, navets)
+  '🥬','🥦','🥕','🧅','🧄','🥔','🍠',
+  // Légumineuses & graines (haricots, fèves, pois)
+  '🫘','🥜','🫛',
+  // Champignons & divers
+  '🍄','🌰',
   // Insectes & animaux du jardin
-  '🐝','🐛','🪱','🐌','🦋','🐞','🐜','🦎','🐸','🦔','🐦','🐦‍⬛',
-  // Outils
-  '🪣','✂️','⛏️','🔧','🧹','🚿','💊','🌡️','🪤','🪝',
+  '🐝','🐛','🪱','🐌','🦋','🐞','🐜','🦎','🐸','🦔','🐦',
+  // Outils (tondeuse→⚙️, arrosoir, fourche, sécateur, paillage…)
+  '🪣','💦','✂️','⚒️','⛏️','🔧','🧹','🌾','🪤','🌡️',
   // Météo & saisons
   '☀️','🌤️','⛅','🌧️','🌦️','🌩️','❄️','💨','🌈',
   // Divers jardin
